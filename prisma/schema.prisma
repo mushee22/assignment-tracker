@@ -1,0 +1,348 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AssignmentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum NotificationType {
+  ASSIGNMENT
+  REMINDER
+  EVENT
+  OTHER
+}
+
+enum NotificationStatus {
+  PENDING
+  READ
+  UN_READ
+  DELETED
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DISABLED
+}
+
+enum StorageType {
+  S3_BUCKET
+  LOCAL
+}
+
+enum ReminderType {
+  CUSTOM
+  AUTO
+}
+
+enum ReminderSentType {
+  EMAIL
+  SMS
+  PUSH
+}
+
+model User {
+  id Int @id @default(autoincrement())
+  email String @unique
+  name String
+  phone String @unique
+  address String?
+  role Role @default(USER)
+
+  hashed_password String
+  is_active Boolean @default(true)
+
+  is_verified Boolean @default(false)
+
+  
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  last_login DateTime?
+
+  subjects Subject[]
+  assignments Assignment[]
+  notification_settings NotificationSettings[]
+  notifications Notification[]
+  reminders Reminder[]
+  device_tokens DeviceToken[]
+  user_sessions UserSession[]
+  profile Profile?
+
+  otps OTP[]
+
+}
+
+model Profile {
+  id Int @id @default(autoincrement())
+
+  user_id Int @unique
+  user User @relation(fields: [user_id], references: [id])
+
+  profile_picture String?
+  notification_preference Json?
+
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@map("profiles")
+}
+
+model Subject{
+  id Int @id @default(autoincrement())
+  
+  name String
+
+  color String?
+
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  assignments Assignment[]
+ 
+
+  @@index([user_id])
+  @@map("subjects")
+
+}
+
+model Assignment {
+  id Int @id @default(autoincrement())
+
+  title String
+
+  description String?
+
+  start_date DateTime?
+
+  due_date DateTime?
+
+  priority Priority @default(LOW)
+
+  status AssignmentStatus @default(PENDING)
+
+  started_at DateTime?
+  completed_at DateTime?
+  cancelled_at DateTime?
+  overdue_date DateTime?
+
+  cancelled_resason String?
+
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+
+  subject_id Int
+  subject Subject @relation(fields: [subject_id], references: [id])
+
+  notification_settings NotificationSettings[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([subject_id])
+  @@index([user_id])
+
+  @@index([status])
+
+  @@map("assignments")
+}
+
+model NotificationSettings {
+  id Int @id @default(autoincrement())
+
+  is_global Boolean @default(false)
+
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+
+  assignment_id Int?
+  assignment Assignment? @relation(fields: [assignment_id], references: [id])
+
+  offset_minute Int
+
+  message_template String?
+
+  is_enabled Boolean @default(true)
+
+  notification_status NotificationStatus @default(UN_READ)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id, is_global])
+  @@map("notification_settings")
+}
+
+model Notification {
+  id Int @id @default(autoincrement())
+  title String
+  message String?
+
+  is_read Boolean @default(false)
+
+  status NotificationStatus @default(UN_READ)
+
+  data Json?
+
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+
+  reference_id Int?
+  reference_model String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([reference_id])
+  @@index([reference_model])
+
+  @@map("notifications")
+}
+
+model Reminder {
+  id Int @id @default(autoincrement())
+  title String
+  message String?
+
+  notification_type NotificationType
+
+  reminder_at DateTime?
+
+  type ReminderType?
+  
+  notification_status NotificationStatus @default(UN_READ)
+
+  status ReminderStatus @default(PENDING)
+
+  is_read Boolean @default(false)
+  data Json?
+
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+
+  sent_type ReminderSentType?
+
+  reference_id Int?
+  reference_model String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([reference_id])
+  @@index([reference_model])
+
+  @@map("reminders")
+
+}
+
+model Attachment {
+  id Int @id @default(autoincrement())
+  file_name String
+  file_type String
+  file_size Int
+  storage_type StorageType
+  storage_path String?
+  storage_key String?
+
+  reference_id Int?
+  reference_model String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([reference_id])
+  @@index([reference_model])
+
+  @@map("attachments")
+}
+
+model DeviceToken {
+  id Int @id @default(autoincrement())
+  token String @unique
+  device_type String
+  device_id String? @unique
+  device_model String?
+
+  is_active Boolean @default(true)
+
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user_sessions UserSession[]
+
+  last_used_at DateTime?
+  expires_at DateTime?
+
+  @@index([user_id])
+
+  @@map("device_tokens")
+}
+
+model UserSession {
+  id Int @id @default(autoincrement())
+  session_id String @unique
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+  device_token_id Int?
+  device_token DeviceToken? @relation(fields: [device_token_id], references: [id])
+  ip_address String?
+  user_agent String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id, device_token_id])
+
+  @@map("user_sessions")
+}
+
+model OTP {
+  id Int @id @default(autoincrement())
+  otp String
+  user_id Int
+  user User @relation(fields: [user_id], references: [id])
+  expires_at DateTime
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+
+  @@map("otps")
+}
