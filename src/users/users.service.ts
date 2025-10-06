@@ -27,9 +27,12 @@ export class UsersService {
   ) {}
 
   async findByEmail(email: string) {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findFirst({
       where: {
-        email,
+        email: {
+          mode: 'insensitive',
+          equals: email,
+        },
       },
     });
 
@@ -160,7 +163,7 @@ export class UsersService {
       },
     });
 
-    await this.reminderService.reValidateUserAssignmentReminders(userId);
+    // await this.reminderService.reValidateUserAssignmentReminders(userId);
   }
 
   async updatedUser(
@@ -263,6 +266,27 @@ export class UsersService {
     } catch (error) {
       throw new HttpException(
         'Failed to save device token',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      console.log(error);
+    }
+  }
+
+  async invalidateTokens(tokens: string[]) {
+    try {
+      await this.prisma.deviceToken.updateMany({
+        where: {
+          token: {
+            in: tokens,
+          },
+        },
+        data: {
+          is_active: false,
+        },
+      });
+    } catch (error) {
+      throw new HttpException(
+        'Failed to invalidate tokens',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
       console.log(error);

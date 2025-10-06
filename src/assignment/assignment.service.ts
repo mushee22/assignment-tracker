@@ -3,10 +3,27 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { AssigneFindQuery } from './dto/assignment.dto';
-import { AssignmentStatus, Attachment, Prisma } from '@prisma/client';
+import {
+  Assignment,
+  AssignmentStatus,
+  Attachment,
+  NotificationType,
+  Prisma,
+  ReminderType,
+  User,
+} from '@prisma/client';
 import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
 import { UploadResult } from 'src/aws-s3/interface/upload-interface';
 import { ReminderService } from 'src/reminder/reminder.service';
+import { UserProvider } from 'src/common/user.provider';
+import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
+import { ShareAssignmentDto } from './dto/share-assignment.dto';
+import { TokenService } from 'src/token/token.service';
+import { FirebaseService } from 'src/common/firebase.service';
+import { ExpoService } from 'src/common/expo.service';
+import { MailerService } from '@nestjs-modules/mailer';
+import { AssignmentWithUser, NotificationData } from 'src/type';
+import { SharedAssignmentQuery } from './interface';
 
 @Injectable()
 export class AssignmentService {
@@ -14,6 +31,11 @@ export class AssignmentService {
     private readonly prismaService: PrismaService,
     private readonly awsS3Service: AwsS3Service,
     private readonly reminderService: ReminderService,
+    private readonly userProvider: UserProvider,
+    private readonly tokenService: TokenService,
+    private readonly fcmService: FirebaseService,
+    private readonly expoService: ExpoService,
+    private readonly mailerService: MailerService,
   ) {}
 
   generateFindWhereQuery(query: AssigneFindQuery) {
@@ -86,6 +108,9 @@ export class AssignmentService {
         id,
         user_id: userid,
       },
+      include: {
+        user: true,
+      },
     });
 
     if (!assignment) {
@@ -100,10 +125,19 @@ export class AssignmentService {
     createAssignmentDto: CreateAssignmentDto,
     attachments: Array<Express.Multer.File>,
   ) {
+    const user = await this.userProvider.findOneById(userId);
+    const notificationPreference = user.profile
+      ?.notification_preference as Prisma.JsonObject;
+    const isPushNotification =
+      notificationPreference?.is_push_notification === 'true';
+    const isEmailNotification =
+      notificationPreference?.is_email_notification === 'true';
     const created = await this.prismaService.assignment.create({
       data: {
         user_id: userId,
         ...createAssignmentDto,
+        is_push_notification: isPushNotification,
+        is_email_notification: isEmailNotification,
       },
     });
 
@@ -191,6 +225,7 @@ export class AssignmentService {
     await this.reminderService.deleteAssignmentReminder(
       assignment.user_id,
       deleted.id,
+      [ReminderType.AUTO, ReminderType.CUSTOM],
     );
     if (deleted) {
       await this.deleteAttacheMentByAssimentId(deleted.id);
@@ -230,6 +265,26 @@ export class AssignmentService {
     }
   }
 
+  async toggleAssignmentNotificationStatus(
+    userId: number,
+    assignmentId: number,
+    data: UpdateAssignmentNotificationStatusDto,
+  ) {
+    const assignment = await this.findOne(userId, assignmentId);
+    const { is_push_notification, is_email_notification } = data;
+    const updated = await this.prismaService.assignment.update({
+      where: {
+        id: assignment.id,
+        user_id: assignment.user_id,
+      },
+      data: {
+        is_push_notification,
+        is_email_notification,
+      },
+    });
+    return updated;
+  }
+
   async deleteAssigmentAttachement(
     userId: number,
     assignmentId: number,
@@ -249,6 +304,278 @@ export class AssignmentService {
           await this.deleteAttachmentsFromDb(deletedIds ?? []);
         }
       }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async getAssignmentSharedUsers(userId: number, assignmentId: number) {
+    const sharedAssignments =
+      await this.prismaService.assignmentMember.findMany({
+        where: {
+          assignment_id: assignmentId,
+          assignment: {
+            user_id: userId,
+          },
+        },
+        include: {
+          user: true,
+        },
+      });
+    return sharedAssignments;
+  }
+
+  async findUserSharedAssignments(userId: number) {
+    const sharedAssignments =
+      await this.prismaService.assignmentMember.findMany({
+        where: {
+          user_id: userId,
+        },
+        include: {
+          assignment: true,
+        },
+      });
+    const sharedAssignmentsList = sharedAssignments.map(
+      (item) => item.assignment,
+    );
+    return sharedAssignmentsList;
+  }
+
+  async findSharedAssignment(
+    id: number,
+    data: SharedAssignmentQuery,
+    userId?: number,
+  ) {
+    const sharedAssignment =
+      await this.prismaService.assignmentMember.findFirst({
+        where: {
+          id: id,
+        },
+        include: {
+          assignment: true,
+        },
+      });
+
+    if (!sharedAssignment) {
+      throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (userId) {
+      if (sharedAssignment.user_id !== userId) {
+        throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+      }
+      if (!sharedAssignment.is_accepted) {
+        await this.acceptSharedAssignment(id);
+      }
+      return sharedAssignment.assignment;
+    }
+
+    if (!data.token) {
+      throw new HttpException('Token is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const token = this.tokenService.verifyToken(data.token);
+
+    const email = token.email;
+
+    if (sharedAssignment.email !== email) {
+      throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (
+      sharedAssignment?.guest_access_token_expires_at &&
+      sharedAssignment.guest_access_token_expires_at < new Date() &&
+      !sharedAssignment.is_accepted
+    ) {
+      throw new HttpException('Token is expired', HttpStatus.BAD_REQUEST);
+    }
+
+    if (!sharedAssignment.is_accepted) {
+      await this.acceptSharedAssignment(id);
+    }
+
+    return sharedAssignment.assignment;
+  }
+
+  private async acceptSharedAssignment(id: number) {
+    await this.prismaService.assignmentMember.update({
+      where: {
+        id: id,
+      },
+      data: {
+        is_accepted: true,
+      },
+    });
+  }
+
+  async shareAssignment(
+    userId: number,
+    assignmentId: number,
+    shareAssignmentDto: ShareAssignmentDto,
+  ) {
+    const assignment = await this.findOne(userId, assignmentId);
+    const owner = assignment.user;
+    const { email: sharedUsersEmail } = shareAssignmentDto;
+    for (const email of sharedUsersEmail) {
+      const user = await this.userProvider.findOneByEmail(email);
+      if (user) {
+        if (owner.id == user.id) {
+          continue;
+        }
+        await this.shareAssignmentToSystemUser(
+          assignment as AssignmentWithUser,
+          user,
+        );
+        continue;
+      }
+      await this.shareAssignmentToGuestUsers(assignment, email);
+    }
+  }
+
+  async removeAccessToTheAssignment(
+    userId: number,
+    assignmentId: number,
+    emails: string[],
+  ) {
+    const assignment = await this.findOne(userId, assignmentId);
+    if (assignment) {
+      await this.prismaService.assignmentMember.deleteMany({
+        where: {
+          email: {
+            in: emails,
+          },
+          assignment_id: assignment.id,
+        },
+      });
+    }
+  }
+
+  private async shareAssignmentToSystemUser(
+    assignment: AssignmentWithUser,
+    user: User,
+  ) {
+    try {
+      await this.prismaService.assignmentMember.create({
+        data: {
+          assignment_id: assignment.id,
+          user_id: user?.id,
+          email: user.email,
+          is_system: true,
+        },
+      });
+      await this.notifyUserAssignmentShare(
+        assignment,
+        assignment.user,
+        true,
+        user.email,
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  private async shareAssignmentToGuestUsers(
+    assignment: AssignmentWithUser,
+    email: string,
+  ) {
+    try {
+      const token = this.tokenService.createToken(
+        { email, userId: 0 },
+        { expiresIn: '2d' },
+      );
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+      await this.prismaService.assignmentMember.create({
+        data: {
+          assignment_id: assignment.id,
+          email: email,
+          is_system: false,
+          guest_access_token: token,
+          guest_access_token_expires_at: expiresAt.toISOString(),
+        },
+      });
+      await this.notifyUserAssignmentShare(
+        assignment,
+        assignment.user,
+        false,
+        email,
+        token,
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  private async notifyUserAssignmentShare(
+    assignment: Assignment,
+    owner: User,
+    isSystemUser: boolean,
+    email: string,
+    token?: string,
+  ) {
+    if (isSystemUser) {
+      await this.sendPushNotificationToUserToNotifyTheAssignmentIsShared(
+        assignment,
+        owner,
+      );
+    }
+    await this.sendMailNotificationToNotifyAssignmentShare(
+      assignment,
+      email,
+      owner,
+      token,
+    );
+  }
+
+  private async sendPushNotificationToUserToNotifyTheAssignmentIsShared(
+    assignment: Assignment,
+    owner: User,
+  ) {
+    try {
+      const tokens = await this.userProvider.getUserTokens(owner.id);
+      const firabasePushNotificationMessage: Map<string, NotificationData> =
+        new Map();
+      const expoPushNotificationMessageTo: Map<string, NotificationData> =
+        new Map();
+      for (const token of tokens) {
+        const message: NotificationData = {
+          title: `Assignment Shared: ${assignment.title}`,
+          body: `You have been shared an assignment by ${owner?.name ?? 'System'}`,
+          type: NotificationType.OTHER,
+          id: assignment.id,
+        };
+        if (token.device_type === 'android') {
+          firabasePushNotificationMessage.set(token.token, message);
+        } else if (token.device_type === 'ios') {
+          expoPushNotificationMessageTo.set(token.token, message);
+        }
+      }
+      if (firabasePushNotificationMessage.size > 0) {
+        await this.fcmService.sendPushNotification(
+          firabasePushNotificationMessage,
+        );
+      }
+      if (expoPushNotificationMessageTo.size > 0) {
+        await this.expoService.sendPushNotification(
+          expoPushNotificationMessageTo,
+        );
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  private async sendMailNotificationToNotifyAssignmentShare(
+    assignment: Assignment,
+    email: string,
+    owner?: User,
+    token?: string,
+  ) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `Assignment Shared: ${assignment.title}`,
+        text: `You have been shared an assignment by ${owner?.name ?? 'System'}, ${process.env.FRONTEND_URL}/assignments/${assignment.id}?access_token=${token}`,
+      });
     } catch (error) {
       console.log(error);
     }

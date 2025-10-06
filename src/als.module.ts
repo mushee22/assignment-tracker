@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
+import { ExpoService } from './common/expo.service';
+import { CommonModule } from './common/common.module';
 
 @Module({
   providers: [
@@ -7,7 +9,9 @@ import { AsyncLocalStorage } from 'async_hooks';
       provide: AsyncLocalStorage,
       useValue: new AsyncLocalStorage(),
     },
+    ExpoService,
   ],
   exports: [AsyncLocalStorage],
+  imports: [CommonModule],
 })
 export class AlsModule {}

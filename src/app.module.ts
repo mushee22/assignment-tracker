@@ -15,9 +15,13 @@ import { ReminderModule } from './reminder/reminder.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TaskService } from './task.service';
 import { NotificationService } from './notification.service';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { APP_FILTER } from '@nestjs/core';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     PrismaModule,
     AssignmentModule,
     SubjectModule,
@@ -27,17 +31,22 @@ import { NotificationService } from './notification.service';
     TokenModule,
     AwsS3Module.forRoot({
       location: 'S3_BUCKET',
-      base_url: 'localhost://3000',
-      s3_bucket_name: 'assignment-tracker',
-      s3_region: 'us-east-1',
-      s3_access_key_id: 'AKIAIOSFODNN7EXAMPLE',
-      s3_secret_access_key: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+      base_url: process.env.BASE_URL,
+      s3_bucket_name: process.env.S3_BUCKET_NAME,
+      s3_region: process.env.S3_REGION,
+      s3_access_key_id: process.env.S3_ACCESS_KEY_ID,
+      s3_secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
     }),
     ReminderModule,
     ScheduleModule.forRoot(),
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     AppService,
     PrismaService,
     TokenService,

@@ -1,13 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from './prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ReminderService } from './reminder/reminder.service';
+import { ReminderSentType } from '@prisma/client';
 
 @Injectable()
 export class TaskService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(private readonly reminderService: ReminderService) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
-  handleCron() {
-    console.log('Called EVERY MInute');
+  async sendPushReminderUsers() {
+    try {
+      await this.reminderService.sendRemindersToUsers(ReminderSentType.PUSH);
+      await this.reminderService.sendRemindersToUsers(ReminderSentType.EMAIL);
+    } catch (error) {
+      console.log(error);
+    }
   }
 }

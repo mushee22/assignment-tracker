@@ -82,8 +82,6 @@ model User {
 
   is_verified Boolean @default(false)
 
-  
-
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -96,6 +94,8 @@ model User {
   reminders Reminder[]
   device_tokens DeviceToken[]
   user_sessions UserSession[]
+  assignment_members AssignmentMember[]
+
   profile Profile?
 
   otps OTP[]
@@ -160,6 +160,9 @@ model Assignment {
   cancelled_at DateTime?
   overdue_date DateTime?
 
+  is_push_notification Boolean @default(true)
+  is_email_notification Boolean @default(true)
+
   cancelled_resason String?
 
   user_id Int
@@ -169,6 +172,7 @@ model Assignment {
   subject Subject @relation(fields: [subject_id], references: [id])
 
   notification_settings NotificationSettings[]
+  assignment_members AssignmentMember[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -255,10 +259,14 @@ model Reminder {
   user_id Int
   user User @relation(fields: [user_id], references: [id])
 
-  sent_type ReminderSentType?
+  disabled_at DateTime?
+  disabled_reason String?
+  // sent_type ReminderSentType?
 
   reference_id Int?
   reference_model String?
+
+  reminder_histories ReminderSendHistory[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -269,6 +277,29 @@ model Reminder {
 
   @@map("reminders")
 
+}
+
+model ReminderSendHistory {
+  id Int @id @default(autoincrement())
+  reminder_id Int
+  reminder Reminder @relation(fields: [reminder_id], references: [id])
+
+  sent_at DateTime?
+
+  can_be_sent Boolean @default(true)
+
+  reason String?
+
+  sent_type ReminderSentType?
+
+  data Json?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([reminder_id])
+
+  @@map("reminder_send_histories")
 }
 
 model Attachment {
@@ -345,4 +376,24 @@ model OTP {
   @@index([user_id])
 
   @@map("otps")
+}
+
+model AssignmentMember {
+  id Int @id @default(autoincrement())
+  assignment_id Int
+  user_id Int?
+  is_system Boolean @default(false)
+  email String
+  assignment Assignment @relation(fields: [assignment_id], references: [id])
+  user User? @relation(fields: [user_id], references: [id])
+  guest_access_token String?
+  guest_access_token_expires_at DateTime?
+  is_accepted Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([assignment_id])
+  @@index([user_id])
+
+  @@map("assignment_members")
 }

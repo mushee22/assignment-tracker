@@ -1,4 +1,13 @@
-import { DeviceToken, Profile, Reminder, User } from '@prisma/client';
+import {
+  Assignment,
+  DeviceToken,
+  NotificationType,
+  Profile,
+  Reminder,
+  User,
+} from '@prisma/client';
+
+import admin from 'firebase-admin';
 
 export type UserWithDeviceToken = User & { device_tokens: DeviceToken[] };
 export type ReminderWithUser = Reminder & {
@@ -8,7 +17,7 @@ export type ReminderWithUser = Reminder & {
 export type EmailReminders = {
   email: string;
   userId: number;
-  reminderId: number;
+  id: number;
   data: {
     subject: string;
     body: string;
@@ -17,4 +26,21 @@ export type EmailReminders = {
     type: string;
     referance_id?: number;
   };
+};
+
+export type NotificationData = {
+  title: string;
+  body?: string;
+  url?: string;
+  type?: NotificationType;
+  id?: number;
+  referance_id?: number;
+};
+
+export type FirebaseMessage = {
+  token: string;
+} & admin.messaging.Message;
+
+export type AssignmentWithUser = Assignment & {
+  user: User;
 };
