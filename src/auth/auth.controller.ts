@@ -5,6 +5,7 @@ import { SignupDto } from './dto/signup.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from 'src/lib/is-public';
+import { SocialLoginType } from '@prisma/client';
 
 @Controller('auth')
 export class AuthController {
@@ -43,5 +44,15 @@ export class AuthController {
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     const token = await this.authService.resetPassword(resetPasswordDto);
     return [token, 'Password Reset Successfully'];
+  }
+
+  @Public()
+  @Post('social-login')
+  async googleLogin(
+    @Body('token') token: string,
+    @Body('type') type: SocialLoginType,
+  ) {
+    const jwtToken = await this.authService.socialLogin(token, type);
+    return [jwtToken, 'Token Verified Successfully'];
   }
 }

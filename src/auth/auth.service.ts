@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { User } from '@prisma/client';
+import { SocialLoginType, User } from '@prisma/client';
 import { UsersService } from 'src/users/users.service';
 import { SignupDto } from './dto/signup.dto';
 import { Role } from '@prisma/client';
@@ -10,6 +10,7 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { comparePasswords, hashPassword } from 'src/lib/security';
+import { SocialLoginService } from 'src/common/social-login.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     private tokenService: TokenService,
+    private socialLoginService: SocialLoginService,
   ) {}
 
   async login(data: LoginDto) {
@@ -30,7 +32,7 @@ export class AuthService {
 
       const isPasswordValid = await comparePasswords(
         data.password,
-        user.hashed_password,
+        user.hashed_password ?? '',
       );
 
       if (!isPasswordValid) {
@@ -147,6 +149,11 @@ export class AuthService {
     try {
       const payload = this.tokenService.verifyToken(data.token);
       const user = await this.usersService.findOneById(payload.userId);
+
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+
       const isVerified = user.is_verified;
 
       if (isVerified) {
@@ -179,6 +186,83 @@ export class AuthService {
       throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
       console.log(error);
     }
+  }
+
+  async socialLogin(token: string, type: SocialLoginType) {
+    switch (type) {
+      case 'APPLE':
+        return await this.appleSignIn(token);
+      case 'GOOGLE':
+        return await this.googleSignIn(token);
+      default:
+        throw new HttpException('type is not found', HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  private async googleSignIn(token: string) {
+    try {
+      const payload = await this.socialLoginService.verifyGoogleToken(token);
+      if (!payload || !payload.email) {
+        throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+      }
+      let user = await this.usersService.findByEmail(payload.email);
+      if (!user) {
+        user = await this.usersService.createUser({
+          email: payload.email,
+          name: payload.name ?? '',
+          role: Role.USER,
+          is_verified: true,
+        });
+      }
+      await this.updateSocialLoginData(user.id, 'GOOGLE', payload.sub);
+      const authToken = this.tokenService.createToken({ userId: user.id });
+      return authToken;
+    } catch (_error) {
+      throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+    }
+  }
+
+  private async appleSignIn(token: string) {
+    try {
+      const payload = await this.socialLoginService.verifyAppleToken(token);
+      if (!payload || typeof payload == 'string') {
+        throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+      }
+      let user = await this.usersService.findByEmail(payload.email as string);
+      if (!user) {
+        user = await this.usersService.createUser({
+          email: payload.email as string,
+          name: '',
+          role: Role.USER,
+          is_verified: true,
+        });
+      }
+      await this.updateSocialLoginData(user.id, 'APPLE', payload.sub as string);
+      const authToken = this.tokenService.createToken({ userId: user.id });
+      return authToken;
+    } catch (_error) {
+      throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+    }
+  }
+
+  private async updateSocialLoginData(
+    userId: number,
+    type: string,
+    id: string,
+  ) {
+    const user = await this.usersService.findOneById(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const socialLoginData = user.social_login_data as string | undefined;
+    const parsedSocialLoginData = (
+      socialLoginData ? JSON.parse(socialLoginData) : {}
+    ) as Record<string, string>;
+    parsedSocialLoginData[type] = id;
+    await this.usersService.updatedUser(userId, {
+      social_login_data: JSON.stringify(parsedSocialLoginData),
+    });
   }
 
   private generateOtp(): number {

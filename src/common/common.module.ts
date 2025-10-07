@@ -3,10 +3,23 @@ import { ExpoService } from './expo.service';
 import { FirebaseService } from './firebase.service';
 import { AssignmentProvider } from './assignment.provider';
 import { UserProvider } from './user.provider';
+import { SocialLoginService } from './social-login.service';
 
 @Global()
 @Module({
-  providers: [ExpoService, FirebaseService, AssignmentProvider, UserProvider],
-  exports: [ExpoService, FirebaseService, AssignmentProvider, UserProvider],
+  providers: [
+    ExpoService,
+    FirebaseService,
+    AssignmentProvider,
+    UserProvider,
+    SocialLoginService,
+  ],
+  exports: [
+    ExpoService,
+    FirebaseService,
+    AssignmentProvider,
+    UserProvider,
+    SocialLoginService,
+  ],
 })
 export class CommonModule {}

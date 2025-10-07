@@ -1,3 +1,5 @@
+import { SocialLoginType } from '@prisma/client';
+
 export const STORAGE_OPTIONS = 'STORAGE_OPTIONS';
 
 export const assignment_reminder_schedules = {

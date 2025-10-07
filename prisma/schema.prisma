@@ -69,18 +69,25 @@ enum ReminderSentType {
   PUSH
 }
 
+enum SocialLoginType {
+  GOOGLE
+  APPLE
+}
+
 model User {
   id Int @id @default(autoincrement())
   email String @unique
   name String
-  phone String @unique
+  phone String?
   address String?
   role Role @default(USER)
 
-  hashed_password String
+  hashed_password String?
   is_active Boolean @default(true)
 
   is_verified Boolean @default(false)
+
+  social_login_data String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

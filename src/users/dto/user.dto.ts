@@ -2,11 +2,12 @@ import { Role } from '@prisma/client';
 
 export class UserCreateDto {
   email: string;
-  hashed_password: string;
+  hashed_password?: string;
   name: string;
-  phone: string;
+  phone?: string;
   is_verified: boolean;
   role: Role;
+  social_login_data?: string;
 }
 
 export class UserDeviceTokenDto {

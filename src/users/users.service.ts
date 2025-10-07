@@ -35,11 +35,6 @@ export class UsersService {
         },
       },
     });
-
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    }
-
     return user;
   }
 
@@ -53,9 +48,9 @@ export class UsersService {
       },
     });
 
-    if (!user) {
-      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    }
+    // if (!user) {
+    //   throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    // }
 
     return user;
   }
@@ -297,9 +292,13 @@ export class UsersService {
     try {
       const user = await this.findOneById(userId);
 
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+
       const isSame = await comparePasswords(
         data.old_password,
-        user.hashed_password,
+        user.hashed_password ?? '',
       );
 
       if (!isSame) {
@@ -353,6 +352,9 @@ export class UsersService {
   async updateProfilePicture(userId: number, file: Express.Multer.File) {
     try {
       const user = await this.findOneById(userId);
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
       const uploadedFiles = await this.awsS3Service.uploadFiles(
         [file],
         'profile-pictures',
