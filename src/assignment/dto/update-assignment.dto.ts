@@ -5,6 +5,7 @@ import {
   IsInt,
   Min,
   IsEnum,
+  Max,
 } from 'class-validator';
 import { Priority, AssignmentStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
@@ -12,7 +13,7 @@ import { Type } from 'class-transformer';
 export class UpdateAssignmentDto {
   @IsOptional()
   @IsString()
-  title: string;
+  title?: string;
 
   @IsOptional()
   @IsString()
@@ -20,17 +21,17 @@ export class UpdateAssignmentDto {
 
   @IsOptional()
   @IsDateString()
-  start_date: string;
+  start_date?: string;
 
   @IsOptional()
   @IsDateString()
-  due_date: string;
+  due_date?: string;
 
   @IsOptional()
   @IsInt()
   @Type(() => Number)
   @Min(1)
-  subject_id: number;
+  subject_id?: number;
 
   @IsEnum(Priority)
   @IsOptional()
@@ -51,4 +52,19 @@ export class UpdateAssignmentDto {
   @IsOptional()
   @IsDateString()
   cancelled_at?: string;
+
+  @IsOptional()
+  @IsDateString()
+  completed_at?: string;
+
+  @IsOptional()
+  @IsString()
+  cancelled_resason?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(0)
+  @Max(100)
+  progress?: number;
 }

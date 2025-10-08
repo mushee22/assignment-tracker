@@ -6,8 +6,8 @@ import { AssigneFindQuery } from './dto/assignment.dto';
 import {
   Assignment,
   AssignmentStatus,
-  Attachment,
   NotificationType,
+  Priority,
   Prisma,
   ReminderType,
   User,
@@ -24,6 +24,8 @@ import { ExpoService } from 'src/common/expo.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import { AssignmentWithUser, NotificationData } from 'src/type';
 import { SharedAssignmentQuery } from './interface';
+import { PriorityIndex } from 'src/constant';
+import { AttachmentService } from 'src/common/attachment.service';
 
 @Injectable()
 export class AssignmentService {
@@ -36,6 +38,7 @@ export class AssignmentService {
     private readonly fcmService: FirebaseService,
     private readonly expoService: ExpoService,
     private readonly mailerService: MailerService,
+    private readonly attachmentService: AttachmentService,
   ) {}
 
   generateFindWhereQuery(query: AssigneFindQuery) {
@@ -136,13 +139,19 @@ export class AssignmentService {
       data: {
         user_id: userId,
         ...createAssignmentDto,
+        priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
         is_push_notification: isPushNotification,
         is_email_notification: isEmailNotification,
       },
     });
 
     if (attachments.length > 0) {
-      await this.uploadAttachent(attachments, created.id);
+      await this.attachmentService.uploadAttachent(
+        attachments,
+        created.id,
+        Prisma.ModelName.Assignment,
+        'assignments',
+      );
     }
 
     await this.reminderService.createAssignmentReminder(userId, created.id);
@@ -157,11 +166,18 @@ export class AssignmentService {
   ) {
     const assignment = await this.findOne(userId, id);
 
+    const priorityIndex = updateAssignmentDto.priority
+      ? PriorityIndex[updateAssignmentDto.priority]
+      : (assignment.priority_index as number);
+
     const updated = await this.prismaService.assignment.update({
       where: {
         id: assignment.id,
       },
-      data: updateAssignmentDto,
+      data: {
+        ...updateAssignmentDto,
+        priority_index: priorityIndex,
+      },
     });
     await this.reminderService.updateAssignmentReminder(userId, updated.id);
 
@@ -175,18 +191,10 @@ export class AssignmentService {
       return assignment;
     }
 
-    const updated = await this.prismaService.assignment.update({
-      where: {
-        id: assignment.id,
-        user_id: userId,
-      },
-      data: {
-        status: AssignmentStatus.COMPLETED,
-        completed_at: new Date(),
-      },
+    const updated = await this.update(userId, id, {
+      status: AssignmentStatus.COMPLETED,
+      completed_at: new Date().toISOString(),
     });
-
-    await this.reminderService.updateAssignmentReminder(userId, assignment.id);
 
     return updated;
   }
@@ -198,19 +206,33 @@ export class AssignmentService {
       return assignment;
     }
 
-    const updated = await this.prismaService.assignment.update({
-      where: {
-        id: assignment.id,
-        user_id: userId,
-      },
-      data: {
-        status: AssignmentStatus.CANCELLED,
-        cancelled_at: new Date(),
-        cancelled_resason: reason,
-      },
+    const updated = await this.update(userId, id, {
+      status: AssignmentStatus.CANCELLED,
+      cancelled_at: new Date().toISOString(),
+      cancelled_resason: reason,
     });
 
-    await this.reminderService.updateAssignmentReminder(userId, assignment.id);
+    return updated;
+  }
+
+  async updateProgress(userId: number, id: number, progress: number) {
+    const assignment = await this.findOne(userId, id);
+
+    if (assignment.status !== AssignmentStatus.PENDING) {
+      throw new HttpException(
+        'Only pending assignments can be updated',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const isCompleted = progress >= 100;
+    const completedAt = isCompleted ? new Date().toISOString() : undefined;
+
+    const updated = await this.update(userId, id, {
+      progress,
+      status: isCompleted ? AssignmentStatus.COMPLETED : assignment.status,
+      completed_at: completedAt,
+    });
 
     return updated;
   }
@@ -258,7 +280,12 @@ export class AssignmentService {
     try {
       const assignment = await this.findOne(userId, assignmentId);
       if (assignment) {
-        await this.uploadAttachent(newAttachments, assignmentId);
+        await this.attachmentService.uploadAttachent(
+          newAttachments,
+          assignmentId,
+          Prisma.ModelName.Assignment,
+          'assignments',
+        );
       }
     } catch (error) {
       console.log(error);
@@ -292,16 +319,19 @@ export class AssignmentService {
   ) {
     try {
       const assignment = await this.findOne(userId, assignmentId);
-      const assignmentAttachments = await this.findAssigmentAttachments(
-        assignment.id,
-      );
+      const assignmentAttachments =
+        await this.attachmentService.getAttachmentByReferanceId(
+          assignment.id,
+          Prisma.ModelName.Assignment,
+        );
       if (assignmentAttachments && assignmentAttachments.length > 0) {
         const filteredAttachments = assignmentAttachments.filter((attachment) =>
           attachmentIds.includes(attachment.id),
         );
         if (filteredAttachments && filteredAttachments.length > 0) {
-          const deletedIds = this.deleteAttacmentFromS3(filteredAttachments);
-          await this.deleteAttachmentsFromDb(deletedIds ?? []);
+          await this.attachmentService.deleteAttachementByIds(
+            filteredAttachments.map((item) => item.id),
+          );
         }
       }
     } catch (error) {
@@ -581,72 +611,72 @@ export class AssignmentService {
     }
   }
 
-  private async uploadAttachent(
-    file: Express.Multer.File[],
-    assignmentId: number,
-  ) {
-    try {
-      const uploadedFiles = await this.awsS3Service.uploadFiles(
-        file,
-        'assignments',
-      );
-      await this.saveUploadedFilesInDb(uploadedFiles, assignmentId);
-    } catch (error) {
-      console.log(error);
-    }
-  }
+  // private async uploadAttachent(
+  //   file: Express.Multer.File[],
+  //   assignmentId: number,
+  // ) {
+  //   try {
+  //     // const uploadedFiles = await this.awsS3Service.uploadFiles(
+  //     //   file,
+  //     //   'assignments',
+  //     // );
+  //     // await this.saveUploadedFilesInDb(uploadedFiles, assignmentId);
+  //     await this.attachmentService.up(assignmentId);
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // }
 
-  private deleteAttacmentFromS3(attachemnts: Attachment[]) {
-    try {
-      const storageKeys = attachemnts
-        .map((attachment) => attachment.storage_key)
-        .filter((key) => key !== null);
-      this.awsS3Service.deleteFile(storageKeys);
-      const deletedIds = attachemnts.map((attachment) => attachment.id);
-      return deletedIds;
-    } catch (error) {
-      console.log(error);
-    }
-  }
+  // private deleteAttacmentFromS3(attachemnts: Attachment[]) {
+  //   try {
+  //     const storageKeys = attachemnts
+  //       .map((attachment) => attachment.storage_key)
+  //       .filter((key) => key !== null);
+  //     this.awsS3Service.deleteFile(storageKeys);
+  //     const deletedIds = attachemnts.map((attachment) => attachment.id);
+  //     return deletedIds;
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // }
 
-  private async findAssigmentAttachments(assignmentId: number) {
-    try {
-      const attachments = await this.prismaService.attachment.findMany({
-        where: {
-          reference_id: assignmentId,
-          reference_model: Prisma.ModelName.Assignment,
-        },
-      });
-      return attachments;
-    } catch (error) {
-      console.log(error);
-    }
-  }
+  // private async findAssigmentAttachments(assignmentId: number) {
+  //   try {
+  //     const attachments = await this.prismaService.attachment.findMany({
+  //       where: {
+  //         reference_id: assignmentId,
+  //         reference_model: Prisma.ModelName.Assignment,
+  //       },
+  //     });
+  //     return attachments;
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // }
 
   private async deleteAttacheMentByAssimentId(assignmentId: number) {
     try {
-      const attachmentIds = await this.findAssigmentAttachments(assignmentId);
-      if (attachmentIds && attachmentIds.length > 0) {
-        const deletedIds = this.deleteAttacmentFromS3(attachmentIds);
-        await this.deleteAttachmentsFromDb(deletedIds ?? []);
-      }
+      await this.attachmentService.deleteAttachmentsByModelFromDb(
+        [assignmentId],
+        Prisma.ModelName.Assignment,
+      );
     } catch (error) {
       console.log(error);
     }
   }
 
-  private async deleteAttachmentsFromDb(attachementIds: number[]) {
-    try {
-      const deleted = await this.prismaService.attachment.deleteMany({
-        where: {
-          id: {
-            in: attachementIds,
-          },
-        },
-      });
-      return deleted.count;
-    } catch (error) {
-      console.log(error);
-    }
-  }
+  // private async deleteAttachmentsFromDb(attachementIds: number[]) {
+  //   try {
+  //     const deleted = await this.prismaService.attachment.deleteMany({
+  //       where: {
+  //         id: {
+  //           in: attachementIds,
+  //         },
+  //       },
+  //     });
+  //     return deleted.count;
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // }
 }

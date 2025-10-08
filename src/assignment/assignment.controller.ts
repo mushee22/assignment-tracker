@@ -8,8 +8,8 @@ import {
   Param,
   Query,
   UseInterceptors,
-  UploadedFile,
   Req,
+  UploadedFiles,
 } from '@nestjs/common';
 import { AssignmentService } from './assignment.service';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
@@ -48,7 +48,7 @@ export class AssignmentController {
   @Post('/')
   @UseInterceptors(FileInterceptor('attachments'))
   createAssignment(
-    @UploadedFile(new AssignmentAttachmentPipe())
+    @UploadedFiles(new AssignmentAttachmentPipe())
     attachments: Array<Express.Multer.File>,
     @Body() createAssignmentDto: CreateAssignmentDto,
     @AuthUser('id') authId: number,
@@ -84,6 +84,20 @@ export class AssignmentController {
     return [assignment, 'Assignment marked as completed successfully'];
   }
 
+  @Put('/:id/progress')
+  async updateProgress(
+    @Param('id') id: number,
+    @AuthUser('id') authId: number,
+    @Body('progress') progress: number,
+  ) {
+    const assignment = await this.assignmentService.updateProgress(
+      authId,
+      id,
+      progress,
+    );
+    return [assignment, 'Assignment progress updated successfully'];
+  }
+
   @Put('/:id/mark-as-cancelled')
   async markAsCancelled(
     @Param('id') id: number,
@@ -117,7 +131,7 @@ export class AssignmentController {
   @UseInterceptors(FileInterceptor('attachments'))
   async uploadAttachment(
     @Param('id') id: number,
-    @UploadedFile(new AssignmentAttachmentPipe())
+    @UploadedFiles(new AssignmentAttachmentPipe())
     attachments: Array<Express.Multer.File>,
     @AuthUser('id') authId: number,
   ) {

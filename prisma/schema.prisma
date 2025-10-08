@@ -159,6 +159,7 @@ model Assignment {
   due_date DateTime?
 
   priority Priority @default(LOW)
+  priority_index Int @default(1)
 
   status AssignmentStatus @default(PENDING)
 
@@ -171,6 +172,8 @@ model Assignment {
   is_email_notification Boolean @default(true)
 
   cancelled_resason String?
+
+  progress Int @default(0)
 
   user_id Int
   user User @relation(fields: [user_id], references: [id])

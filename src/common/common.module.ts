@@ -4,6 +4,7 @@ import { FirebaseService } from './firebase.service';
 import { AssignmentProvider } from './assignment.provider';
 import { UserProvider } from './user.provider';
 import { SocialLoginService } from './social-login.service';
+import { AttachmentService } from './attachment.service';
 
 @Global()
 @Module({
@@ -13,6 +14,7 @@ import { SocialLoginService } from './social-login.service';
     AssignmentProvider,
     UserProvider,
     SocialLoginService,
+    AttachmentService,
   ],
   exports: [
     ExpoService,

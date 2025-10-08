@@ -55,7 +55,7 @@ export class UsersService {
     return user;
   }
 
-  private setDefaultReinderSchedule() {
+  private setDefaultReiminderSchedule() {
     const defaultSchedule = assignment_reminder_schedules;
     const defaultPreference = {};
     for (const schedule in defaultSchedule) {
@@ -69,11 +69,13 @@ export class UsersService {
       data: {
         user_id: userId,
         notification_preference: {
-          assignment_reminder: false,
-          push_notification: false,
-          email_notification: false,
+          assignment_reminder: true,
+          push_notification: true,
+          email_notification: true,
+          // notification: true,
+          // reminder: true,
           reminder_schedules: {
-            ...this.setDefaultReinderSchedule(),
+            ...this.setDefaultReiminderSchedule(),
           },
         },
       },
@@ -174,12 +176,11 @@ export class UsersService {
       });
 
       return updatedUser;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to update user',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -187,6 +188,8 @@ export class UsersService {
     const createdUser = await this.prisma.user.create({
       data,
     });
+
+    await this.createUserProfile(createdUser.id);
 
     return createdUser;
   }
@@ -201,12 +204,11 @@ export class UsersService {
           is_verified: true,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to verify user',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 

@@ -4,10 +4,14 @@ import { CreateSubjectDto } from './dto/create-subject-dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { SubjectFindQuery } from './dto/subject.dto';
 import { Prisma } from '@prisma/client';
+import { AttachmentService } from 'src/common/attachment.service';
 
 @Injectable()
 export class SubjectService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly attachmentService: AttachmentService,
+  ) {}
 
   generateFindWhereQuery(query: SubjectFindQuery) {
     const where: Prisma.SubjectWhereInput = {};
@@ -53,7 +57,11 @@ export class SubjectService {
     return subject;
   }
 
-  async create(userId: number, createSubjectDto: CreateSubjectDto) {
+  async create(
+    userId: number,
+    createSubjectDto: CreateSubjectDto,
+    icon?: Express.Multer.File,
+  ) {
     const created = await this.prismaService.subject.create({
       data: {
         ...createSubjectDto,
@@ -61,25 +69,59 @@ export class SubjectService {
       },
     });
 
+    if (icon) {
+      await this.attachmentService.uploadAttachent(
+        [icon],
+        created.id,
+        Prisma.ModelName.Subject,
+        'subject',
+      );
+    }
+
     return created;
   }
 
-  async update(userId: number, id: number, updateSubjectDto: UpdateSubjectDto) {
+  async update(
+    userId: number,
+    id: number,
+    updateSubjectDto: UpdateSubjectDto,
+    icon?: Express.Multer.File,
+  ) {
     const subject = await this.findOne(userId, id);
 
-    return this.prismaService.subject.update({
+    const updated = await this.prismaService.subject.update({
       where: { id: subject.id },
       data: updateSubjectDto,
     });
+
+    if (icon) {
+      await this.attachmentService.deleteAttachmentsByModelFromDb(
+        [subject.id],
+        Prisma.ModelName.Subject,
+      );
+      await this.attachmentService.uploadAttachent(
+        [icon],
+        subject.id,
+        Prisma.ModelName.Subject,
+        'subject',
+      );
+    }
+
+    return updated;
   }
 
   async delete(userId: number, id: number) {
     const isExist = await this.findOne(userId, id);
 
-    return this.prismaService.subject.delete({
+    const deleted = await this.prismaService.subject.delete({
       where: {
         id: isExist.id,
       },
     });
+
+    await this.attachmentService.deleteAttachmentsByModelFromDb(
+      [deleted.id],
+      Prisma.ModelName.Subject,
+    );
   }
 }
