@@ -16,6 +16,7 @@ import { assignment_reminder_schedules } from 'src/constant';
 import { UpdateUserNotifcationSetttingsDto } from './dto/update-notifcation-service.dto';
 import { ReminderService } from 'src/reminder/reminder.service';
 import { UpdateReminderScheduleDto } from './dto/update-reminder-schedule.dto';
+import { AssignmentProvider } from 'src/common/assignment.provider';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +25,7 @@ export class UsersService {
     private awsS3Service: AwsS3Service,
     @Inject(forwardRef(() => ReminderService))
     private reminderService: ReminderService,
+    private assignmentProvider: AssignmentProvider,
   ) {}
 
   async findByEmail(email: string) {
@@ -190,6 +192,10 @@ export class UsersService {
     });
 
     await this.createUserProfile(createdUser.id);
+    await this.assignmentProvider.mapUserToSharedAssignment(
+      createdUser.email,
+      createdUser.id,
+    );
 
     return createdUser;
   }

@@ -12,7 +12,6 @@ import {
   ReminderType,
   User,
 } from '@prisma/client';
-import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
 import { UploadResult } from 'src/aws-s3/interface/upload-interface';
 import { ReminderService } from 'src/reminder/reminder.service';
 import { UserProvider } from 'src/common/user.provider';
@@ -26,12 +25,13 @@ import { AssignmentWithUser, NotificationData } from 'src/type';
 import { SharedAssignmentQuery } from './interface';
 import { PriorityIndex } from 'src/constant';
 import { AttachmentService } from 'src/common/attachment.service';
+import { AssignmentProvider } from 'src/common/assignment.provider';
+import { generateFindWhereQuery } from 'src/lib/helper';
 
 @Injectable()
 export class AssignmentService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly awsS3Service: AwsS3Service,
     private readonly reminderService: ReminderService,
     private readonly userProvider: UserProvider,
     private readonly tokenService: TokenService,
@@ -39,82 +39,27 @@ export class AssignmentService {
     private readonly expoService: ExpoService,
     private readonly mailerService: MailerService,
     private readonly attachmentService: AttachmentService,
+    private readonly assignmentProvider: AssignmentProvider,
   ) {}
 
-  generateFindWhereQuery(query: AssigneFindQuery) {
-    const where: Prisma.AssignmentWhereInput = {};
-
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    if (query.subject_id) {
-      where.subject_id = query.subject_id;
-    }
-
-    if (query.q) {
-      where.OR = [
-        {
-          title: {
-            contains: query.q,
-          },
-        },
-        {
-          description: {
-            contains: query.q,
-          },
-        },
-      ];
-    }
-
-    if (query.start) {
-      where.created_at = {
-        gte: new Date(query.start),
-      };
-    }
-
-    if (query.end) {
-      where.created_at = {
-        lte: new Date(query.end),
-      };
-    }
-
-    if (query.date) {
-      where.created_at = {
-        gte: new Date(query.date),
-        lte: new Date(query.date + ' 23:59:59'),
-      };
-    }
-
-    return where;
-  }
-
   async findAll(userId: number, query: AssigneFindQuery) {
-    const whereQuery = this.generateFindWhereQuery(query);
+    const whereQuery = generateFindWhereQuery(query);
 
-    const assignments = await this.prismaService.assignment.findMany({
-      where: {
-        user_id: userId,
-        ...whereQuery,
+    const assignments = await this.assignmentProvider.findAll(
+      userId,
+      whereQuery,
+      {
+        page: query.page,
+        page_size: query.page_size,
+        cursor: query.cursor,
       },
-      orderBy: {
-        id: 'desc',
-      },
-    });
+    );
 
     return assignments;
   }
 
   async findOne(userid: number, id: number) {
-    const assignment = await this.prismaService.assignment.findUnique({
-      where: {
-        id,
-        user_id: userid,
-      },
-      include: {
-        user: true,
-      },
-    });
+    const assignment = await this.assignmentProvider.findOne(userid, id);
 
     if (!assignment) {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
@@ -135,14 +80,12 @@ export class AssignmentService {
       notificationPreference?.is_push_notification === 'true';
     const isEmailNotification =
       notificationPreference?.is_email_notification === 'true';
-    const created = await this.prismaService.assignment.create({
-      data: {
-        user_id: userId,
-        ...createAssignmentDto,
-        priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
-        is_push_notification: isPushNotification,
-        is_email_notification: isEmailNotification,
-      },
+
+    const created = await this.assignmentProvider.create(userId, {
+      ...createAssignmentDto,
+      priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
+      is_push_notification: isPushNotification,
+      is_email_notification: isEmailNotification,
     });
 
     if (attachments.length > 0) {
@@ -166,18 +109,17 @@ export class AssignmentService {
   ) {
     const assignment = await this.findOne(userId, id);
 
+    if (!assignment) {
+      throw new HttpException('Assignment not found', HttpStatus.BAD_REQUEST);
+    }
+
     const priorityIndex = updateAssignmentDto.priority
       ? PriorityIndex[updateAssignmentDto.priority]
-      : (assignment.priority_index as number);
+      : assignment.priority_index;
 
-    const updated = await this.prismaService.assignment.update({
-      where: {
-        id: assignment.id,
-      },
-      data: {
-        ...updateAssignmentDto,
-        priority_index: priorityIndex,
-      },
+    const updated = await this.assignmentProvider.update(userId, id, {
+      ...updateAssignmentDto,
+      priority_index: priorityIndex,
     });
     await this.reminderService.updateAssignmentReminder(userId, updated.id);
 
@@ -191,10 +133,7 @@ export class AssignmentService {
       return assignment;
     }
 
-    const updated = await this.update(userId, id, {
-      status: AssignmentStatus.COMPLETED,
-      completed_at: new Date().toISOString(),
-    });
+    const updated = await this.assignmentProvider.markAsCompleted(userId, id);
 
     return updated;
   }
@@ -206,11 +145,11 @@ export class AssignmentService {
       return assignment;
     }
 
-    const updated = await this.update(userId, id, {
-      status: AssignmentStatus.CANCELLED,
-      cancelled_at: new Date().toISOString(),
-      cancelled_resason: reason,
-    });
+    const updated = await this.assignmentProvider.markAsCancelled(
+      userId,
+      id,
+      reason,
+    );
 
     return updated;
   }
@@ -228,7 +167,7 @@ export class AssignmentService {
     const isCompleted = progress >= 100;
     const completedAt = isCompleted ? new Date().toISOString() : undefined;
 
-    const updated = await this.update(userId, id, {
+    const updated = await this.assignmentProvider.update(userId, id, {
       progress,
       status: isCompleted ? AssignmentStatus.COMPLETED : assignment.status,
       completed_at: completedAt,
@@ -444,6 +383,9 @@ export class AssignmentService {
     shareAssignmentDto: ShareAssignmentDto,
   ) {
     const assignment = await this.findOne(userId, assignmentId);
+    if (!assignment) {
+      throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+    }
     const owner = assignment.user;
     const { email: sharedUsersEmail } = shareAssignmentDto;
     for (const email of sharedUsersEmail) {
@@ -611,49 +553,6 @@ export class AssignmentService {
     }
   }
 
-  // private async uploadAttachent(
-  //   file: Express.Multer.File[],
-  //   assignmentId: number,
-  // ) {
-  //   try {
-  //     // const uploadedFiles = await this.awsS3Service.uploadFiles(
-  //     //   file,
-  //     //   'assignments',
-  //     // );
-  //     // await this.saveUploadedFilesInDb(uploadedFiles, assignmentId);
-  //     await this.attachmentService.up(assignmentId);
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // }
-
-  // private deleteAttacmentFromS3(attachemnts: Attachment[]) {
-  //   try {
-  //     const storageKeys = attachemnts
-  //       .map((attachment) => attachment.storage_key)
-  //       .filter((key) => key !== null);
-  //     this.awsS3Service.deleteFile(storageKeys);
-  //     const deletedIds = attachemnts.map((attachment) => attachment.id);
-  //     return deletedIds;
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // }
-
-  // private async findAssigmentAttachments(assignmentId: number) {
-  //   try {
-  //     const attachments = await this.prismaService.attachment.findMany({
-  //       where: {
-  //         reference_id: assignmentId,
-  //         reference_model: Prisma.ModelName.Assignment,
-  //       },
-  //     });
-  //     return attachments;
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // }
-
   private async deleteAttacheMentByAssimentId(assignmentId: number) {
     try {
       await this.attachmentService.deleteAttachmentsByModelFromDb(
@@ -664,19 +563,4 @@ export class AssignmentService {
       console.log(error);
     }
   }
-
-  // private async deleteAttachmentsFromDb(attachementIds: number[]) {
-  //   try {
-  //     const deleted = await this.prismaService.attachment.deleteMany({
-  //       where: {
-  //         id: {
-  //           in: attachementIds,
-  //         },
-  //       },
-  //     });
-  //     return deleted.count;
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // }
 }

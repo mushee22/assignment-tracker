@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { extension } from 'prisma-paginate';
 
 @Injectable()
 export class PrismaService
@@ -18,6 +19,7 @@ export class PrismaService
 
   async onModuleInit() {
     await this.$connect();
+    this.$extends(extension);
   }
 
   async onModuleDestroy() {

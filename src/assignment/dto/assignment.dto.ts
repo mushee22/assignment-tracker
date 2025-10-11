@@ -7,4 +7,7 @@ export class AssigneFindQuery {
   end?: string;
   date?: string;
   subject_id?: number;
+  page?: number;
+  page_size?: number;
+  cursor?: number;
 }

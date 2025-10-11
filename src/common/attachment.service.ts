@@ -105,7 +105,7 @@ export class AttachmentService {
     referanceId: number,
     referanceModel: string,
   ) {
-    return await this.prismaService.attachment.createMany({
+    return await this.prismaService.attachment.createManyAndReturn({
       data: uploadedFiles.map((file) => ({
         reference_id: referanceId,
         reference_model: referanceModel,
