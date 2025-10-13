@@ -27,6 +27,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/lib/validation-message-transform.ts ./dist/lib/
 
+RUN npx prisma generate
+
 EXPOSE 3000
 
 CMD ["node", "dist/main"]
