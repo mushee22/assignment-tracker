@@ -29,4 +29,4 @@ COPY --from=builder /app/src/lib/validation-message-transform.ts ./dist/lib/
 
 EXPOSE 3000
 
-CMD["node", "dist/main"]
+CMD ["node", "dist/main"]
