@@ -14,6 +14,7 @@ import {
   AssignmentStatus,
   ReminderSentType,
   ReminderType,
+  DeviceToken,
 } from '@prisma/client';
 import { MailerService } from '@nestjs-modules/mailer';
 import { deadlineMinus } from 'src/lib/helper';
@@ -21,7 +22,6 @@ import { EmailReminders, NotificationData, ReminderWithUser } from 'src/type';
 import { UsersService } from 'src/users/users.service';
 import { FirebaseService } from 'src/common/firebase.service';
 import { ExpoService } from 'src/common/expo.service';
-import { DeviceToken } from 'generated/prisma';
 import { AssignmentProvider } from 'src/common/assignment.provider';
 
 @Injectable()
