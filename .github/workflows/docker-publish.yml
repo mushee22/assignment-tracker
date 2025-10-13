@@ -21,10 +21,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize DockerFile 
+      - name: Normalize Dockerfile 
         run: |
-          sed -i 's/\r$//' DockerFile
-          echo "" >> DockerFile
+          sed -i 's/\r$//' Dockerfile
+          echo "" >> Dockerfile
 
       - name: Build Docker image
         run: |
