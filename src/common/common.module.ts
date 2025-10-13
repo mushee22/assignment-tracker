@@ -22,6 +22,7 @@ import { AttachmentService } from './attachment.service';
     AssignmentProvider,
     UserProvider,
     SocialLoginService,
+    AttachmentService,
   ],
 })
 export class CommonModule {}
