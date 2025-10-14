@@ -18,11 +18,17 @@ import {
 } from '@prisma/client';
 import { MailerService } from '@nestjs-modules/mailer';
 import { deadlineMinus } from 'src/lib/helper';
-import { EmailReminders, NotificationData, ReminderWithUser } from 'src/type';
+import {
+  EmailReminders,
+  NotificationData,
+  ReminderUnsendHistoryData,
+  ReminderWithUser,
+} from 'src/type';
 import { UsersService } from 'src/users/users.service';
 import { FirebaseService } from 'src/common/firebase.service';
 import { ExpoService } from 'src/common/expo.service';
 import { AssignmentProvider } from 'src/common/assignment.provider';
+import { NotificationService } from 'src/notification/notification.service';
 
 @Injectable()
 export class ReminderService {
@@ -34,6 +40,7 @@ export class ReminderService {
     private readonly fcmService: FirebaseService,
     private readonly expoService: ExpoService,
     private readonly assignmentProvider: AssignmentProvider,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private async insertDataToReminder(data: Prisma.ReminderCreateManyInput[]) {
@@ -225,6 +232,26 @@ export class ReminderService {
     }
   }
 
+  private async markReminderAsDisabled(reminderIds: number[]) {
+    try {
+      await this.prismaService.reminder.updateMany({
+        where: {
+          id: {
+            in: reminderIds,
+          },
+        },
+        data: {
+          status: ReminderStatus.DISABLED,
+        },
+      });
+    } catch (_error) {
+      throw new HttpException(
+        'somthing went wrong',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async createAssignmentReminder(userId: number, assignmentId: number) {
     try {
       const assignment = await this.prismaService.assignment.findFirst({
@@ -377,9 +404,18 @@ export class ReminderService {
   private async getRemindersToNotifyUser(date: Date) {
     return await this.prismaService.reminder.findMany({
       where: {
-        reminder_at: {
-          lte: date,
-        },
+        AND: [
+          {
+            reminder_at: {
+              lte: date,
+            },
+          },
+          {
+            reminder_at: {
+              gte: new Date(date.getTime() + 2 * 60 * 1000), // greater than 2 minutes
+            },
+          },
+        ],
         status: ReminderStatus['PENDING'],
         reference_model: Prisma.ModelName.Assignment,
       },
@@ -426,11 +462,31 @@ export class ReminderService {
     };
   }
 
+  private async updateUnsentReminderHistory(
+    data: Map<number, ReminderUnsendHistoryData>,
+  ) {
+    for (const [id, value] of data) {
+      await this.prismaService.reminderSendHistory.create({
+        data: {
+          reminder_id: id,
+          sent_type: value.sent_type,
+          reason: value.reason,
+          can_be_sent: false,
+          data: value?.data,
+        },
+      });
+    }
+  }
+
   private async setReminderMessagesToSendEmail(reminders: ReminderWithUser[]) {
     const emailReminderMessages: EmailReminders[] = [];
     if (reminders.length === 0) {
-      return;
+      return {
+        emailReminderMessages,
+        unSendReminderIds: [],
+      };
     }
+    const unSendReminders = new Map<number, ReminderUnsendHistoryData>();
     for (const reminder of reminders) {
       const user = reminder.user;
       const profile = user.profile;
@@ -444,15 +500,20 @@ export class ReminderService {
       const isAssignmentNotification =
         notification_preference.assignment_notification as boolean;
 
+      let isCanSendEmail = true;
+      let reason = '';
+
       if (!isEmailNotification) {
-        continue;
+        isCanSendEmail = false;
+        reason = 'Email notification is disabled';
       }
 
       if (
         reminder.notification_type == NotificationType.ASSIGNMENT &&
         !isAssignmentNotification
       ) {
-        continue;
+        isCanSendEmail = false;
+        reason = 'Assignment notification is disabled';
       }
 
       if (reminder.notification_type == NotificationType.ASSIGNMENT) {
@@ -461,16 +522,30 @@ export class ReminderService {
           reminder.reference_id!,
         );
         if (!assignment || !assignment.is_email_notification) {
-          continue;
+          isCanSendEmail = false;
+          reason = 'Email notification is disabled for this assignment';
         }
       }
 
-      if (isEmailNotification) {
-        const message = this.setMessageData(reminder, ReminderSentType.EMAIL);
-        emailReminderMessages.push(message as EmailReminders);
+      const message = this.setMessageData(reminder, ReminderSentType.EMAIL);
+
+      if (!isCanSendEmail) {
+        unSendReminders.set(reminder.id, {
+          reason,
+          sent_type: ReminderSentType.EMAIL,
+          data: JSON.stringify(message),
+        });
+        continue;
       }
+      emailReminderMessages.push(message as EmailReminders);
     }
-    return emailReminderMessages;
+    if (unSendReminders.size > 0) {
+      await this.updateUnsentReminderHistory(unSendReminders);
+    }
+    return {
+      emailReminderMessages,
+      unSendReminderIds: Array.from(unSendReminders.keys()),
+    };
   }
 
   private async sendReminderToEmail(reminders?: EmailReminders[]) {
@@ -498,7 +573,7 @@ export class ReminderService {
   ) {
     const firabasePushNotificationMessage: Map<string, NotificationData> =
       new Map();
-    const expoPushNotificationMessageTo: Map<string, NotificationData> =
+    const expoPushNotificationMessage: Map<string, NotificationData> =
       new Map();
     for (const deviceToken of devices) {
       const message = {
@@ -512,26 +587,28 @@ export class ReminderService {
         firabasePushNotificationMessage.set(deviceToken.token, message);
       }
       if (deviceToken.device_model === 'ios') {
-        expoPushNotificationMessageTo.set(deviceToken.token, message);
+        expoPushNotificationMessage.set(deviceToken.token, message);
       }
     }
     return {
       firabasePushNotificationMessage,
-      expoPushNotificationMessageTo,
+      expoPushNotificationMessage,
     };
   }
 
   private async setReminderMessagesToSendPush(reminders: ReminderWithUser[]) {
     const firabasePushNotificationMessage: Map<string, NotificationData> =
       new Map();
-    const expoPushNotificationMessageTo: Map<string, NotificationData> =
+    const expoPushNotificationMessage: Map<string, NotificationData> =
       new Map();
     if (reminders.length === 0) {
       return {
         firabasePushNotificationMessage,
-        expoPushNotificationMessageTo,
+        expoPushNotificationMessage,
+        unSentReminderIds: [],
       };
     }
+    const unSentReminders = new Map<number, ReminderUnsendHistoryData>();
     for (const reminder of reminders) {
       const user = reminder.user;
       const profile = user.profile;
@@ -546,15 +623,20 @@ export class ReminderService {
       const isAssignmentNotification =
         notification_preference.assignment_notification as boolean;
 
+      let canSendPush = true;
+      let reason = '';
+
       if (!isPushNotification) {
-        continue;
+        canSendPush = false;
+        reason = 'Push notification is disabled';
       }
 
       if (
         reminder.notification_type == NotificationType.ASSIGNMENT &&
         !isAssignmentNotification
       ) {
-        continue;
+        canSendPush = false;
+        reason = 'Push notification is disabled for this assignment';
       }
 
       if (reminder.notification_type == NotificationType.ASSIGNMENT) {
@@ -563,26 +645,44 @@ export class ReminderService {
           reminder.reference_id!,
         );
         if (!assignment || !assignment.is_push_notification) {
-          continue;
+          canSendPush = false;
+          reason = 'Push notification is disabled for this assignment';
         }
+      }
+
+      if (!user.device_tokens || user.device_tokens.length === 0) {
+        canSendPush = false;
+        reason = 'User has no device tokens';
+      }
+
+      if (!canSendPush) {
+        unSentReminders.set(reminder.id, {
+          reason,
+          sent_type: ReminderSentType.PUSH,
+        });
+        continue;
       }
 
       if (user.device_tokens.length) {
         const {
-          firabasePushNotificationMessage,
-          expoPushNotificationMessageTo,
+          firabasePushNotificationMessage: userFirabasePushNotificationMessage,
+          expoPushNotificationMessage: userExpoPushNotificationMessage,
         } = this.setNotifcationMessageForDevices(user.device_tokens, reminder);
-        firabasePushNotificationMessage.forEach((value, key) => {
+        userFirabasePushNotificationMessage.forEach((value, key) => {
           firabasePushNotificationMessage.set(key, value);
         });
-        expoPushNotificationMessageTo.forEach((value, key) => {
-          expoPushNotificationMessageTo.set(key, value);
+        userExpoPushNotificationMessage.forEach((value, key) => {
+          expoPushNotificationMessage.set(key, value);
         });
       }
     }
+    if (unSentReminders.size > 0) {
+      await this.updateUnsentReminderHistory(unSentReminders);
+    }
     return {
       firabasePushNotificationMessage,
-      expoPushNotificationMessageTo,
+      expoPushNotificationMessage,
+      unSentReminderIds: Array.from(unSentReminders.keys()),
     };
   }
 
@@ -617,54 +717,146 @@ export class ReminderService {
     }
   }
 
-  private async sendPushRemindersToUers() {
+  private async sendPushRemindersToUers(
+    remindersToNotifyUsers: ReminderWithUser[],
+  ) {
     try {
-      const date = new Date();
-      const remindersToNotifyUsers = await this.getRemindersToNotifyUser(date);
-      const { firabasePushNotificationMessage, expoPushNotificationMessageTo } =
-        await this.setReminderMessagesToSendPush(
-          remindersToNotifyUsers as ReminderWithUser[],
-        );
+      const {
+        firabasePushNotificationMessage,
+        expoPushNotificationMessage,
+        unSentReminderIds,
+      } = await this.setReminderMessagesToSendPush(remindersToNotifyUsers);
       const invalidTokens = await this.sendReminderToPushNotification(
-        expoPushNotificationMessageTo,
+        expoPushNotificationMessage,
         firabasePushNotificationMessage,
       );
-      const reminderIdsMarkAsCompleted: number[] = remindersToNotifyUsers.map(
+      const reminderIdsSendAsPush: number[] = remindersToNotifyUsers.map(
         (reminder) => reminder.id,
       );
-      await this.markRemindersAsSent(reminderIdsMarkAsCompleted);
+      // await this.markRemindersAsSent(reminderIdsMarkAsCompleted);
       if (invalidTokens.length) {
         await this.userService.invalidateTokens(invalidTokens);
       }
+      return {
+        reminderIdsSendAsPush,
+        unSentReminderIds,
+      };
     } catch (_error) {
       throw new Error('somthing went wrong');
     }
   }
 
-  private async sendEmialRemindersToUers() {
+  private async sendEmialRemindersToUers(
+    remindersToNotifyUsers: ReminderWithUser[],
+  ) {
     try {
-      const date = new Date();
-      const remindersToNotifyUsers = await this.getRemindersToNotifyUser(date);
-
-      const emailReminderMessages = await this.setReminderMessagesToSendEmail(
-        remindersToNotifyUsers as ReminderWithUser[],
-      );
+      const { emailReminderMessages, unSendReminderIds } =
+        await this.setReminderMessagesToSendEmail(remindersToNotifyUsers);
 
       const reminderIdsSendToMail = await this.sendReminderToEmail(
         emailReminderMessages,
       );
 
-      console.log(reminderIdsSendToMail);
-    } catch (error) {
-      console.log(error);
+      return {
+        reminderIdsSendToMail,
+        unSendReminderIds,
+      };
+    } catch (_error) {
+      throw new Error('somthing went wrong');
     }
   }
 
-  async sendRemindersToUsers(type: ReminderSentType) {
-    if (type === ReminderSentType.PUSH) {
-      await this.sendPushRemindersToUers();
-    } else if (type === ReminderSentType.EMAIL) {
-      await this.sendEmialRemindersToUers();
-    }
+  private async updateReminderSentHistory(
+    reminderIds: number[],
+    sentType: ReminderSentType,
+  ) {
+    await this.prismaService.reminderSendHistory.createMany({
+      data: reminderIds.map((id) => ({
+        reminder_id: id,
+        sent_type: sentType,
+      })),
+    });
+  }
+
+  private async updateReminderSentStatus(
+    reminderidsSentAsEmail: number[],
+    reminderIdsSendAsPush: number[],
+  ) {
+    const reminderidsMarkAsSent = new Set([
+      ...reminderidsSentAsEmail,
+      ...reminderIdsSendAsPush,
+    ]);
+    await this.markRemindersAsSent(Array.from(reminderidsMarkAsSent));
+    await this.updateReminderSentHistory(
+      reminderIdsSendAsPush,
+      ReminderSentType.PUSH,
+    );
+    await this.updateReminderSentHistory(
+      reminderidsSentAsEmail,
+      ReminderSentType.EMAIL,
+    );
+  }
+
+  private async updateUnsentStatus(
+    reminderidsUnSendAsEmail: number[],
+    reminderIdsUnSendAsPush: number[],
+  ) {
+    const unSentReminderIds = new Set([
+      ...reminderidsUnSendAsEmail,
+      ...reminderIdsUnSendAsPush,
+    ]);
+    await this.markReminderAsDisabled(Array.from(unSentReminderIds));
+  }
+
+  private async saveReminderNotificationToDb(
+    remindersToNotifyUsers: ReminderWithUser[],
+  ) {
+    const data: Prisma.NotificationCreateManyInput[] =
+      remindersToNotifyUsers.map((reminder) => ({
+        user_id: reminder.user_id,
+        type: reminder.notification_type,
+        reference_id: reminder.reference_id ?? undefined,
+        reference_model: Prisma.ModelName.Reminder,
+        message: reminder.message,
+        title: reminder.title,
+        data: JSON.stringify({
+          id: reminder.id,
+          type: reminder.notification_type,
+          reference_id: reminder.reference_id ?? undefined,
+        }),
+      }));
+    await this.notificationService.saveNotificationsToDB(data);
+  }
+
+  async sendRemindersToUsers(date: Date) {
+    // get reminders to notify users
+    const remindersToNotifyUsers = (await this.getRemindersToNotifyUser(
+      date,
+    )) as ReminderWithUser[];
+
+    // send push reminders to users
+    const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
+      await this.sendPushRemindersToUers(remindersToNotifyUsers);
+
+    // send email reminders to users
+    const {
+      reminderIdsSendToMail = [],
+      unSendReminderIds: unSendEmailReminderIds = [],
+    } = await this.sendEmialRemindersToUers(remindersToNotifyUsers);
+
+    // save notification to db
+    await this.saveReminderNotificationToDb(remindersToNotifyUsers);
+
+    // update sent status
+    await this.updateReminderSentStatus(
+      reminderIdsSendToMail,
+      reminderIdsSendAsPush,
+    );
+
+    // update unsent status
+    await this.updateUnsentStatus(
+      unSendEmailReminderIds,
+      unSentPushReminderIds,
+    );
   }
 }

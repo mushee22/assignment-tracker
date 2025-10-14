@@ -27,6 +27,7 @@ import { PriorityIndex } from 'src/constant';
 import { AttachmentService } from 'src/common/attachment.service';
 import { AssignmentProvider } from 'src/common/assignment.provider';
 import { generateFindWhereQuery } from 'src/lib/helper';
+import { NotificationService } from 'src/notification/notification.service';
 
 @Injectable()
 export class AssignmentService {
@@ -40,6 +41,7 @@ export class AssignmentService {
     private readonly mailerService: MailerService,
     private readonly attachmentService: AttachmentService,
     private readonly assignmentProvider: AssignmentProvider,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async findAll(userId: number, query: AssigneFindQuery) {
@@ -485,10 +487,24 @@ export class AssignmentService {
     token?: string,
   ) {
     if (isSystemUser) {
-      await this.sendPushNotificationToUserToNotifyTheAssignmentIsShared(
-        assignment,
-        owner,
-      );
+      const message =
+        await this.sendPushNotificationToUserToNotifyTheAssignmentIsShared(
+          assignment,
+          owner,
+        );
+      await this.notificationService.saveNotificationsToDB([
+        {
+          user_id: owner.id,
+          title: message?.title ?? '',
+          message: message?.body,
+          reference_id: assignment.id,
+          reference_model: Prisma.ModelName.Assignment,
+          data: JSON.stringify({
+            id: assignment.id,
+            type: message?.type,
+          }),
+        },
+      ]);
     }
     await this.sendMailNotificationToNotifyAssignmentShare(
       assignment,
@@ -503,18 +519,18 @@ export class AssignmentService {
     owner: User,
   ) {
     try {
+      const message: NotificationData = {
+        title: `Assignment Shared: ${assignment.title}`,
+        body: `You have been shared an assignment by ${owner?.name ?? 'System'}`,
+        type: NotificationType.OTHER,
+        id: assignment.id,
+      };
       const tokens = await this.userProvider.getUserTokens(owner.id);
       const firabasePushNotificationMessage: Map<string, NotificationData> =
         new Map();
       const expoPushNotificationMessageTo: Map<string, NotificationData> =
         new Map();
       for (const token of tokens) {
-        const message: NotificationData = {
-          title: `Assignment Shared: ${assignment.title}`,
-          body: `You have been shared an assignment by ${owner?.name ?? 'System'}`,
-          type: NotificationType.OTHER,
-          id: assignment.id,
-        };
         if (token.device_type === 'android') {
           firabasePushNotificationMessage.set(token.token, message);
         } else if (token.device_type === 'ios') {
@@ -531,6 +547,7 @@ export class AssignmentService {
           expoPushNotificationMessageTo,
         );
       }
+      return message;
     } catch (error) {
       console.log(error);
     }

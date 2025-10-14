@@ -25,6 +25,18 @@ services:
       - 3000
     networks:
       - ${PROJECT_ID}-prod
+  nginx:
+    image: nginx:latest
+    container_name: ${PROJECT_ID}-nginx-prod
+    restart: always
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - ${PROJECT_ID}-prod
 volumes:
   postgres_data:
 

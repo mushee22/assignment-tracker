@@ -4,6 +4,7 @@ import {
   NotificationType,
   Profile,
   Reminder,
+  ReminderSentType,
   User,
 } from '@prisma/client';
 
@@ -43,4 +44,10 @@ export type FirebaseMessage = {
 
 export type AssignmentWithUser = Assignment & {
   user: User;
+};
+
+export type ReminderUnsendHistoryData = {
+  sent_type: ReminderSentType;
+  reason?: string;
+  data?: string;
 };
