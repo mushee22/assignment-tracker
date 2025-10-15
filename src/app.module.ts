@@ -14,7 +14,6 @@ import { AwsS3Module } from './aws-s3/aws-s3.module';
 import { ReminderModule } from './reminder/reminder.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TaskService } from './task.service';
-import { NotificationService } from './notification.service';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { APP_FILTER } from '@nestjs/core';
 import { CommonModule } from './common/common.module';
@@ -51,7 +50,6 @@ import { CommonModule } from './common/common.module';
     PrismaService,
     TokenService,
     TaskService,
-    NotificationService,
   ],
 })
 export class AppModule {}
