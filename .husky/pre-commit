@@ -1,0 +1,9 @@
+echo "Running pre-push checks..."
+
+yarn build || { echo "Build failed"; exit 1; }
+
+npx prisma validate || { echo "Prisma schema invalid"; exit 1; }
+
+yarn lint || { echo "Lint error"; exit 1; }
+
+echo "✅ All checks passed. Proceeding with push."
