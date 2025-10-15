@@ -26,6 +26,13 @@ export class AuthController {
   }
 
   @Public()
+  @Post('resend-otp')
+  async resendOtp(@Body('token') token: string) {
+    const newToken = await this.authService.resendOtp(token);
+    return [newToken, 'OTP Resent Successfully'];
+  }
+
+  @Public()
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
     const token = await this.authService.login(loginDto);

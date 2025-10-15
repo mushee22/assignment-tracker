@@ -94,11 +94,11 @@ export class AuthService {
       if (createdUser) {
         await this.usersService.deleteUserById(createdUser.id);
       }
+      console.log(error);
       throw new HttpException(
         'Failed to sign up',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -188,6 +188,32 @@ export class AuthService {
     }
   }
 
+  async resendOtp(token: string) {
+    try {
+      const payload = this.tokenService.verifyToken(token);
+      if (!payload.email) {
+        throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+      }
+      const user = await this.usersService.findByEmail(payload.email);
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+      const otp = this.generateOtp();
+      const otpId = await this.sendOtp(user.id, user.email, user.name, otp);
+      const newToken = this.tokenService.createToken({
+        userId: user.id,
+        otpId: otpId,
+      });
+      return newToken;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to send OTP',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      console.log(error);
+    }
+  }
+
   async socialLogin(token: string, type: SocialLoginType) {
     switch (type) {
       case 'APPLE':
@@ -255,7 +281,7 @@ export class AuthService {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
-    const socialLoginData = user.social_login_data as string | undefined;
+    const socialLoginData = user?.social_login_data as string | undefined;
     const parsedSocialLoginData = (
       socialLoginData ? JSON.parse(socialLoginData) : {}
     ) as Record<string, string>;
@@ -266,6 +292,9 @@ export class AuthService {
   }
 
   private generateOtp(): number {
+    if (process.env.NODE_ENV === 'development') {
+      return 1234;
+    }
     return Math.floor(1000 + Math.random() * 9000);
   }
 
@@ -275,7 +304,7 @@ export class AuthService {
     name: string,
     otp: number,
   ) {
-    await this.mailService.sendOTPMail(email, name, otp);
+    // await this.mailService.sendOTPMail(email, name, otp);
     return await this.saveOTP(userId, otp);
   }
 
@@ -286,9 +315,6 @@ export class AuthService {
           id: otpId,
           user_id: userId,
           otp: `${otp}`,
-        },
-        orderBy: {
-          id: 'desc',
         },
       });
 
@@ -315,7 +341,6 @@ export class AuthService {
       console.log(error);
     }
   }
-
   private async saveOTP(userId: number, otp: number) {
     try {
       const createdOTP = await this.prisma.oTP.create({

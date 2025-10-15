@@ -101,14 +101,22 @@ export class AssignmentProvider {
   }
 
   async mapUserToSharedAssignment(email: string, userid: number) {
-    return await this.prismaService.assignmentMember.updateMany({
-      where: {
-        email: email.toLowerCase(),
-        user_id: null,
-      },
-      data: {
-        user_id: userid,
-      },
-    });
+    try {
+      return await this.prismaService.assignmentMember.updateMany({
+        where: {
+          email: email.toLowerCase(),
+          user_id: null,
+        },
+        data: {
+          user_id: userid,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+      // throw new HttpException(
+      //   'Failed to map user to shared assignment',
+      //   HttpStatus.INTERNAL_SERVER_ERROR,
+      // );
+    }
   }
 }
