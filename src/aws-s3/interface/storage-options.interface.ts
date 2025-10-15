@@ -9,4 +9,5 @@ export type StorageModuleOptions = {
   s3_endpoint?: string;
   base_url?: string;
   local_storage_location?: string;
+  s3_default_folder?: string;
 };

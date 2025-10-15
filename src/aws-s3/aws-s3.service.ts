@@ -28,8 +28,10 @@ export class AwsS3Service {
   }
 
   private generateUniqueFileName(fileName: string, folderName: string) {
-    console.log(fileName, folderName);
-    return `${folderName}/${Date.now()}-${fileName}`;
+    const defaultFolder = this.storageOptions.s3_default_folder
+      ? `/${this.storageOptions.s3_default_folder}`
+      : '';
+    return `${defaultFolder}/${folderName}/${Date.now()}-${fileName}`;
   }
 
   private async generatePresignedUrl(data: Partial<S3.PutObjectRequest>) {

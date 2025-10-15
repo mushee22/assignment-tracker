@@ -35,6 +35,7 @@ import { CommonModule } from './common/common.module';
       s3_region: process.env.S3_REGION,
       s3_access_key_id: process.env.S3_ACCESS_KEY_ID,
       s3_secret_access_key: process.env.S3_SECRET_ACCESS_KEY,
+      s3_default_folder: process.env.S3_BUCKET_DEFAULT_FOLDER,
     }),
     ReminderModule,
     ScheduleModule.forRoot(),
