@@ -6,6 +6,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from 'src/lib/is-public';
 import { SocialLoginType } from '@prisma/client';
+import { comparePasswords, hashPassword } from 'src/lib/security';
 
 @Controller('auth')
 export class AuthController {
@@ -61,5 +62,22 @@ export class AuthController {
   ) {
     const jwtToken = await this.authService.socialLogin(token, type);
     return [jwtToken, 'Token Verified Successfully'];
+  }
+
+  @Public()
+  @Post('create-hashed-password')
+  async googleLoginRegister(@Body('password') password: string) {
+    const hashedPassword = await hashPassword(password);
+    return [hashedPassword, 'Password Hased Successfully'];
+  }
+
+  @Public()
+  @Post('verify-password')
+  async verifyPassword(
+    @Body('hashed_password') hashedPassword: string,
+    @Body('password') password: string,
+  ) {
+    const isPasswordValid = await comparePasswords(password, hashedPassword);
+    return [isPasswordValid, 'Password Verified Successfully'];
   }
 }

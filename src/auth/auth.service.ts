@@ -24,10 +24,24 @@ export class AuthService {
 
   async login(data: LoginDto) {
     try {
-      const user = await this.usersService.findByEmail(data.email);
+      const user = await this.prisma.user.findFirst({
+        where: {
+          email: {
+            mode: 'insensitive',
+            equals: data.email,
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          hashed_password: true,
+          is_verified: true,
+        },
+      });
 
       if (!user || !user.is_verified) {
-        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+        throw new HttpException('User not found', HttpStatus.BAD_REQUEST);
       }
 
       const isPasswordValid = await comparePasswords(
@@ -36,13 +50,17 @@ export class AuthService {
       );
 
       if (!isPasswordValid) {
-        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+        console.log('Invalid password', data.password, user.hashed_password);
+        throw new HttpException('Invalid credentials', HttpStatus.BAD_REQUEST);
       }
 
       const createdToken = this.tokenService.createToken({ userId: user.id });
       return createdToken;
     } catch (error) {
       console.log(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
     }
   }
@@ -56,8 +74,17 @@ export class AuthService {
       }
 
       if (user && !user.is_verified) {
+        const hashedPassword = await hashPassword(data.password);
+
+        await this.usersService.updatedUser(user.id, {
+          name: data.name,
+          phone: data.phone,
+          hashed_password: hashedPassword,
+        });
+
         const otp = this.generateOtp();
         const otpId = await this.sendOtp(user.id, data.email, data.name, otp);
+
         const token = this.tokenService.createToken({
           userId: user.id,
           otpId: otpId,
@@ -156,7 +183,11 @@ export class AuthService {
 
       const isVerified = user.is_verified;
 
-      if (isVerified) {
+      if (data.type == 'reset-password' && !isVerified) {
+        throw new HttpException('User not verified', HttpStatus.BAD_REQUEST);
+      }
+
+      if (data.type == 'register' && isVerified) {
         throw new HttpException(
           'User already verified',
           HttpStatus.BAD_REQUEST,
@@ -173,15 +204,17 @@ export class AuthService {
         throw new HttpException('Invalid OTP', HttpStatus.BAD_REQUEST);
       }
 
-      await this.usersService.verifyUser(user.id);
+      if (data.type == 'register') {
+        await this.usersService.verifyUser(user.id);
+      }
+
       const createdToken = this.tokenService.createToken(
         {
           userId: user.id,
           email: user.email,
-          otpId: payload.otpId,
         },
         {
-          expiresIn: data.type == 'register' ? '1h' : '10m',
+          expiresIn: data.type == 'register' ? '2y' : '10m',
         },
       );
 
@@ -327,8 +360,6 @@ export class AuthService {
         },
       });
 
-      // console.log(otpRecord);
-
       if (!otpRecord) {
         throw new HttpException('Invalid OTP', HttpStatus.BAD_REQUEST);
       }
@@ -338,8 +369,6 @@ export class AuthService {
       if (isExpired) {
         throw new HttpException('OTP expired', HttpStatus.BAD_REQUEST);
       }
-
-      console.log(otpRecord);
 
       await this.prisma.oTP.delete({
         where: {
@@ -355,11 +384,12 @@ export class AuthService {
   }
   private async saveOTP(userId: number, otp: number) {
     try {
+      const expiredAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
       const createdOTP = await this.prisma.oTP.create({
         data: {
           user_id: userId,
           otp: `${otp}`,
-          expires_at: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+          expires_at: expiredAt,
         },
       });
       return createdOTP.id;

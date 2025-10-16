@@ -3,4 +3,5 @@ export class PayloadDto {
   name?: string;
   email?: string;
   otpId?: number;
+  id?: number;
 }

@@ -17,6 +17,7 @@ import { UpdateUserNotifcationSetttingsDto } from './dto/update-notifcation-serv
 import { ReminderService } from 'src/reminder/reminder.service';
 import { UpdateReminderScheduleDto } from './dto/update-reminder-schedule.dto';
 import { AssignmentProvider } from 'src/common/assignment.provider';
+import { UserProvider } from 'src/common/user.provider';
 
 @Injectable()
 export class UsersService {
@@ -26,6 +27,7 @@ export class UsersService {
     @Inject(forwardRef(() => ReminderService))
     private reminderService: ReminderService,
     private assignmentProvider: AssignmentProvider,
+    private userProvider: UserProvider,
   ) {}
 
   async findByEmail(email: string) {
@@ -41,20 +43,21 @@ export class UsersService {
   }
 
   async findOneById(id: number) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id,
-      },
-      include: {
-        profile: true,
-      },
-    });
+    return await this.userProvider.findOneById(id);
+    // const user = await this.prisma.user.findUnique({
+    //   where: {
+    //     id,
+    //   },
+    //   include: {
+    //     profile: true,
+    //   },
+    // });
 
     // if (!user) {
     //   throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     // }
 
-    return user;
+    // return user;
   }
 
   private setDefaultReiminderSchedule() {
@@ -191,17 +194,12 @@ export class UsersService {
       data,
     });
     await this.createUserProfile(createdUser.id);
-    await this.assignmentProvider.mapUserToSharedAssignment(
-      createdUser.email,
-      createdUser.id,
-    );
-
     return createdUser;
   }
 
   async verifyUser(userId: number) {
     try {
-      await this.prisma.user.update({
+      const user = await this.prisma.user.update({
         where: {
           id: userId,
         },
@@ -209,6 +207,10 @@ export class UsersService {
           is_verified: true,
         },
       });
+      await this.assignmentProvider.mapUserToSharedAssignment(
+        user.email,
+        user.id,
+      );
     } catch (_error) {
       throw new HttpException(
         'Failed to verify user',

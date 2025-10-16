@@ -35,16 +35,12 @@ export class AuthGuard implements CanActivate {
     if (!token) {
       throw new HttpException('Unautherized user', HttpStatus.UNAUTHORIZED);
     }
-    try {
-      const payload = this.tokenService.verifyToken(token);
-      if (!payload) {
-        throw new HttpException('Unautherized user', HttpStatus.UNAUTHORIZED);
-      }
-      request['user'] = payload;
-    } catch (error) {
+    const payload = this.tokenService.verifyToken(token);
+    if (!payload) {
       throw new HttpException('Unautherized user', HttpStatus.UNAUTHORIZED);
-      console.log(error);
     }
+    payload.id = payload.userId;
+    request['user'] = payload;
     return true;
   }
 

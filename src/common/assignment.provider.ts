@@ -1,7 +1,8 @@
 import { PrismaService } from 'src/prisma/prisma.service';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { AssignmentStatus, Prisma } from '@prisma/client';
 
+@Injectable()
 export class AssignmentProvider {
   constructor(private readonly prismaService: PrismaService) {}
   async findOne(userid: number, id: number) {

@@ -61,6 +61,12 @@ export class AssignmentController {
     return [assignment, 'Assignment created successfully'];
   }
 
+  @Get('/:id')
+  async getAssignment(@Param('id') id: number, @AuthUser('id') authId: number) {
+    const assignment = await this.assignmentService.findOne(id, authId);
+    return [assignment, 'Assignment fetched successfully'];
+  }
+
   @Put('/:id')
   updateAssignment(
     @Param('id') id: number,

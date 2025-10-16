@@ -24,6 +24,7 @@ export class UsersController {
 
   @Get('me')
   async getMe(@AuthUser('id') authId: number) {
+    console.log(authId);
     const user = await this.usersService.findOneById(authId);
     return [user];
   }

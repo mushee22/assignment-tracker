@@ -5,10 +5,12 @@ export const comparePasswords = async (
   hashedPassword: string,
 ): Promise<boolean> => {
   try {
+    console.log('password', password, hashedPassword);
     const isPasswordValid: boolean = await bcrypt.compare(
       password,
       hashedPassword,
     );
+    console.log('isPasswordValid', isPasswordValid);
     return isPasswordValid;
   } catch (error) {
     throw new Error('Internal server error');
