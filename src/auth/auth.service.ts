@@ -50,14 +50,12 @@ export class AuthService {
       );
 
       if (!isPasswordValid) {
-        console.log('Invalid password', data.password, user.hashed_password);
         throw new HttpException('Invalid credentials', HttpStatus.BAD_REQUEST);
       }
 
       const createdToken = this.tokenService.createToken({ userId: user.id });
       return createdToken;
     } catch (error) {
-      console.log(error);
       if (error instanceof HttpException) {
         throw error;
       }
@@ -117,11 +115,10 @@ export class AuthService {
         otpId: otpId,
       });
       return token;
-    } catch (error) {
+    } catch (_error) {
       if (createdUser) {
         await this.usersService.deleteUserById(createdUser.id);
       }
-      console.log(error);
       throw new HttpException(
         'Failed to sign up',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -143,12 +140,11 @@ export class AuthService {
         otpId: otpId,
       });
       return token;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to send OTP',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -163,12 +159,11 @@ export class AuthService {
       await this.usersService.updatedUser(user.id, {
         hashed_password: hashedPassword,
       });
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to update password',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -247,12 +242,11 @@ export class AuthService {
         otpId: otpId,
       });
       return newToken;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to send OTP',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -393,12 +387,11 @@ export class AuthService {
         },
       });
       return createdOTP.id;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to save OTP',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 }

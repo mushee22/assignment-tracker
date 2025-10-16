@@ -21,9 +21,8 @@ export class UserInterceptor implements NestInterceptor {
         throw new HttpException('Unautherized user', HttpStatus.UNAUTHORIZED);
       }
       request['user'] = payload;
-    } catch (error) {
+    } catch (_error) {
       return next.handle();
-      console.log(error);
     }
 
     return next.handle();

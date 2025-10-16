@@ -70,3 +70,25 @@ export const generateFindWhereQuery = (query: AssigneFindQuery) => {
 
   return where;
 };
+
+export const generateFindOrderByQuery = (query: AssigneFindQuery) => {
+  const orderBy: Prisma.AssignmentOrderByWithRelationInput = {};
+  let sort = query.sort || 'id:desc';
+
+  if (typeof sort === 'string') {
+    sort = [sort];
+  }
+
+  sort.forEach((item) => {
+    const relations = item.split('.');
+    if (relations.length === 1) {
+      orderBy[relations[0]] = 'desc';
+      return orderBy;
+    }
+    orderBy[relations[0]] = {
+      [relations[1].split(':')[0]]: relations[1].split(':')[1] || 'desc',
+    };
+  });
+
+  return orderBy;
+};

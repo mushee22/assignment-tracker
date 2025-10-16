@@ -18,7 +18,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prepare": "husky"
+    "prepare": "husky",
+    "docker:build": "docker build -t ghcr.io/mushee22/mushee22/assignment-tracker:latest .",
+    "docker:push": "docker push ghcr.io/mushee22/mushee22/assignment-tracker:latest"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

@@ -26,7 +26,10 @@ import { SharedAssignmentQuery } from './interface';
 import { PriorityIndex } from 'src/constant';
 import { AttachmentService } from 'src/common/attachment.service';
 import { AssignmentProvider } from 'src/common/assignment.provider';
-import { generateFindWhereQuery } from 'src/lib/helper';
+import {
+  generateFindOrderByQuery,
+  generateFindWhereQuery,
+} from 'src/lib/helper';
 import { NotificationService } from 'src/notification/notification.service';
 
 @Injectable()
@@ -46,10 +49,12 @@ export class AssignmentService {
 
   async findAll(userId: number, query: AssigneFindQuery) {
     const whereQuery = generateFindWhereQuery(query);
+    const orderByQuery = generateFindOrderByQuery(query);
 
     const assignments = await this.assignmentProvider.findAll(
       userId,
       whereQuery,
+      orderByQuery,
       {
         page: query.page,
         page_size: query.page_size,

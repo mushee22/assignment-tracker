@@ -17,8 +17,7 @@ export class MailService {
           year: new Date().getFullYear(),
         },
       });
-    } catch (error) {
-      console.log(error);
+    } catch (_error) {
       throw new HttpException(
         'Failed to send email',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -39,8 +38,7 @@ export class MailService {
           year: new Date().getFullYear(),
         },
       });
-    } catch (error) {
-      console.log(error);
+    } catch (_error) {
       throw new HttpException(
         'Failed to send email',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -68,8 +66,7 @@ export class MailService {
           year: new Date().getFullYear(),
         },
       });
-    } catch (error) {
-      console.log(error);
+    } catch (_error) {
       throw new HttpException(
         'Failed to send email',
         HttpStatus.INTERNAL_SERVER_ERROR,

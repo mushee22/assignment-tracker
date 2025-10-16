@@ -11,8 +11,8 @@ export class TaskService {
     try {
       const date = new Date();
       await this.reminderService.sendRemindersToUsers(date);
-    } catch (error) {
-      console.log(error);
+    } catch (_error) {
+      console.log(_error);
     }
   }
 }

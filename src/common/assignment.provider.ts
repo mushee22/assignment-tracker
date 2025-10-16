@@ -26,6 +26,7 @@ export class AssignmentProvider {
   async findAll(
     userId: number,
     query: Prisma.AssignmentWhereInput,
+    orderBy: Prisma.AssignmentOrderByWithRelationInput,
     pagination?: {
       page?: number;
       page_size?: number;
@@ -40,6 +41,7 @@ export class AssignmentProvider {
         ...query,
       },
       orderBy: {
+        ...orderBy,
         id: 'desc',
       },
       cursor: {
@@ -123,12 +125,11 @@ export class AssignmentProvider {
           },
         });
       }
-    } catch (error) {
-      console.log(error);
-      // throw new HttpException(
-      //   'Failed to map user to shared assignment',
-      //   HttpStatus.INTERNAL_SERVER_ERROR,
-      // );
+    } catch (_error) {
+      throw new HttpException(
+        'Failed to map user to shared assignment',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

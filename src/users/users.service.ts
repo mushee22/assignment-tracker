@@ -124,12 +124,11 @@ export class UsersService {
       });
 
       await this.reminderService.reValidateUserAssignmentReminders(userId);
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to update reminder schedule status',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -226,8 +225,7 @@ export class UsersService {
           id,
         },
       });
-    } catch (error) {
-      console.log(error);
+    } catch (_error) {
       throw new Error('User deletion failed');
     }
   }
@@ -267,12 +265,11 @@ export class UsersService {
       });
 
       return true;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to save device token',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -288,12 +285,11 @@ export class UsersService {
           is_active: false,
         },
       });
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to invalidate tokens',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -324,12 +320,11 @@ export class UsersService {
       });
 
       return updatedUser;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to update password',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -349,12 +344,11 @@ export class UsersService {
           },
         });
       }
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to delete profile picture',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 
@@ -390,12 +384,11 @@ export class UsersService {
         },
       });
       return updatedUser;
-    } catch (error) {
+    } catch (_error) {
       throw new HttpException(
         'Failed to update profile picture',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      console.log(error);
     }
   }
 }
