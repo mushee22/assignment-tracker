@@ -175,7 +175,11 @@ export class AuthService {
 
       await this.usersService.verifyUser(user.id);
       const createdToken = this.tokenService.createToken(
-        { userId: user.id },
+        {
+          userId: user.id,
+          email: user.email,
+          otpId: payload.otpId,
+        },
         {
           expiresIn: data.type == 'register' ? '1h' : '10m',
         },
@@ -183,8 +187,13 @@ export class AuthService {
 
       return createdToken;
     } catch (error) {
-      throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
-      console.log(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to verify OTP',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -318,13 +327,19 @@ export class AuthService {
         },
       });
 
+      // console.log(otpRecord);
+
       if (!otpRecord) {
         throw new HttpException('Invalid OTP', HttpStatus.BAD_REQUEST);
       }
 
-      if (otpRecord.expires_at < new Date()) {
+      const isExpired = new Date(otpRecord.expires_at) < new Date();
+
+      if (isExpired) {
         throw new HttpException('OTP expired', HttpStatus.BAD_REQUEST);
       }
+
+      console.log(otpRecord);
 
       await this.prisma.oTP.delete({
         where: {
@@ -334,11 +349,8 @@ export class AuthService {
 
       return true;
     } catch (error) {
-      throw new HttpException(
-        'Failed to verify OTP',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
       console.log(error);
+      throw error;
     }
   }
   private async saveOTP(userId: number, otp: number) {

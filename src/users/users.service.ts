@@ -190,7 +190,6 @@ export class UsersService {
     const createdUser = await this.prisma.user.create({
       data,
     });
-
     await this.createUserProfile(createdUser.id);
     await this.assignmentProvider.mapUserToSharedAssignment(
       createdUser.email,

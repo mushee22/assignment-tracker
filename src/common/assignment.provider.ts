@@ -102,15 +102,26 @@ export class AssignmentProvider {
 
   async mapUserToSharedAssignment(email: string, userid: number) {
     try {
-      return await this.prismaService.assignmentMember.updateMany({
-        where: {
-          email: email.toLowerCase(),
-          user_id: null,
-        },
-        data: {
-          user_id: userid,
-        },
-      });
+      const sharedAssignments =
+        await this.prismaService.assignmentMember.findMany({
+          where: {
+            email: email.toLowerCase(),
+            user_id: null,
+          },
+        });
+      if (sharedAssignments.length) {
+        const sharedAssignmentIds = sharedAssignments.map((item) => item.id);
+        await this.prismaService.assignmentMember.updateMany({
+          where: {
+            id: {
+              in: sharedAssignmentIds,
+            },
+          },
+          data: {
+            user_id: userid,
+          },
+        });
+      }
     } catch (error) {
       console.log(error);
       // throw new HttpException(

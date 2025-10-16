@@ -15,7 +15,7 @@ export class TokenService {
     const payload: PayloadDto = this.jwtService.verify(token);
 
     if (!payload) {
-      throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+      throw new HttpException('Invalid token', HttpStatus.BAD_REQUEST);
     }
     return payload;
   }
