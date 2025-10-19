@@ -23,7 +23,7 @@ import { ExpoService } from 'src/common/expo.service';
 import { MailerService } from '@nestjs-modules/mailer';
 import { AssignmentWithUser, NotificationData } from 'src/type';
 import { SharedAssignmentQuery } from './interface';
-import { PriorityIndex } from 'src/constant';
+import { deviceTokenTypes, PriorityIndex } from 'src/constant';
 import { AttachmentService } from 'src/common/attachment.service';
 import { AssignmentProvider } from 'src/common/assignment.provider';
 import {
@@ -31,6 +31,7 @@ import {
   generateFindWhereQuery,
 } from 'src/lib/helper';
 import { NotificationService } from 'src/notification/notification.service';
+import { AssignmentNoteProvider } from 'src/common/assignment-note.provider';
 
 @Injectable()
 export class AssignmentService {
@@ -45,6 +46,7 @@ export class AssignmentService {
     private readonly attachmentService: AttachmentService,
     private readonly assignmentProvider: AssignmentProvider,
     private readonly notificationService: NotificationService,
+    private readonly assignmentNoteProvider: AssignmentNoteProvider,
   ) {}
 
   async findAll(userId: number, query: AssigneFindQuery) {
@@ -91,8 +93,13 @@ export class AssignmentService {
     const created = await this.assignmentProvider.create(userId, {
       ...createAssignmentDto,
       priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
-      is_push_notification: isPushNotification,
-      is_email_notification: isEmailNotification,
+      is_push_notification: createAssignmentDto.is_reminder
+        ? true
+        : isPushNotification,
+      is_email_notification: createAssignmentDto.is_reminder
+        ? true
+        : isEmailNotification,
+      is_reminder: createAssignmentDto.is_reminder,
     });
 
     if (attachments.length > 0) {
@@ -101,6 +108,13 @@ export class AssignmentService {
         created.id,
         Prisma.ModelName.Assignment,
         'assignments',
+      );
+    }
+
+    if (createAssignmentDto.notes?.length) {
+      await this.assignmentNoteProvider.createAssignmentNote(
+        created.id,
+        createAssignmentDto.notes,
       );
     }
 
@@ -195,9 +209,36 @@ export class AssignmentService {
       deleted.id,
       [ReminderType.AUTO, ReminderType.CUSTOM],
     );
+    await this.assignmentNoteProvider.deleteAllAssignmentNotes(deleted.id);
     if (deleted) {
       await this.deleteAttacheMentByAssimentId(deleted.id);
     }
+  }
+
+  async getAssignmentNotes(userId: number, assignmentId: number) {
+    return await this.assignmentNoteProvider.getAssignmentNotes(
+      userId,
+      assignmentId,
+    );
+  }
+
+  async addNewAssignmentNote(
+    userId: number,
+    assignmentId: number,
+    note: string,
+  ) {
+    return await this.assignmentNoteProvider.addAssignmentNotes(
+      userId,
+      assignmentId,
+      note,
+    );
+  }
+
+  async deleteAssignmentNote(userId: number, noteId: number) {
+    return await this.assignmentNoteProvider.deleteAssignmentNotes(
+      userId,
+      noteId,
+    );
   }
 
   async saveUploadedFilesInDb(
@@ -224,7 +265,19 @@ export class AssignmentService {
     assignmentId: number,
   ) {
     try {
+      console.log(newAttachments);
+      if (!newAttachments || newAttachments.length === 0) {
+        throw new HttpException(
+          'New attachment is required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const assignment = await this.findOne(userId, assignmentId);
+
+      if (!assignment) {
+        throw new HttpException('Assignment not found', HttpStatus.BAD_REQUEST);
+      }
+
       if (assignment) {
         await this.attachmentService.uploadAttachent(
           newAttachments,
@@ -234,7 +287,13 @@ export class AssignmentService {
         );
       }
     } catch (error) {
-      console.log(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      new HttpException(
+        'Failed to update new attachment',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -536,9 +595,9 @@ export class AssignmentService {
       const expoPushNotificationMessageTo: Map<string, NotificationData> =
         new Map();
       for (const token of tokens) {
-        if (token.device_type === 'android') {
+        if (token.device_type === deviceTokenTypes.android) {
           firabasePushNotificationMessage.set(token.token, message);
-        } else if (token.device_type === 'ios') {
+        } else if (token.device_type === deviceTokenTypes.ios) {
           expoPushNotificationMessageTo.set(token.token, message);
         }
       }

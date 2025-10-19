@@ -21,6 +21,7 @@ import { deadlineMinus } from 'src/lib/helper';
 import {
   EmailReminders,
   NotificationData,
+  ReminderScheduleProps,
   ReminderUnsendHistoryData,
   ReminderWithUser,
 } from 'src/type';
@@ -29,6 +30,8 @@ import { FirebaseService } from 'src/common/firebase.service';
 import { ExpoService } from 'src/common/expo.service';
 import { AssignmentProvider } from 'src/common/assignment.provider';
 import { NotificationService } from 'src/notification/notification.service';
+import { deviceTokenTypes } from 'src/constant';
+import { UserProvider } from 'src/common/user.provider';
 
 @Injectable()
 export class ReminderService {
@@ -36,7 +39,7 @@ export class ReminderService {
     private readonly prismaService: PrismaService,
     private readonly mailerService: MailerService,
     @Inject(forwardRef(() => UsersService))
-    private readonly userService: UsersService,
+    private readonly userProvider: UserProvider,
     private readonly fcmService: FirebaseService,
     private readonly expoService: ExpoService,
     private readonly assignmentProvider: AssignmentProvider,
@@ -59,7 +62,7 @@ export class ReminderService {
 
   async createReminder(userId: number, reminderCreateDto: ReminderCreateDto) {
     try {
-      const user = await this.userService.findOneById(userId);
+      const user = await this.userProvider.findOneById(userId);
       if (!user) {
         throw new HttpException('user not found', HttpStatus.NOT_FOUND);
       }
@@ -291,21 +294,24 @@ export class ReminderService {
         return reminders;
       }
 
-      const schedules =
-        notification_preference.reminder_schedules as Prisma.JsonObject;
+      if (!assignment.is_reminder) {
+        return reminders;
+      }
+
+      const schedules = await this.userProvider.getUserSchedules(userId);
 
       if (!schedules) {
         return reminders;
       }
 
-      for (const schedule in schedules) {
-        if (!schedules[schedule]) {
+      for (const schedule of schedules) {
+        if (!schedule.is_enabled) {
           continue;
         }
 
         const reminderAt = deadlineMinus(
           assignment.due_date!,
-          schedules[schedule] as string,
+          schedule.schedule,
         );
 
         const reminder: Prisma.ReminderCreateManyInput = {
@@ -583,10 +589,10 @@ export class ReminderService {
         type: reminder.notification_type,
         reference_id: reminder.reference_id ?? undefined,
       };
-      if (deviceToken.device_model === 'android') {
+      if (deviceToken.device_type === deviceTokenTypes.android) {
         firabasePushNotificationMessage.set(deviceToken.token, message);
       }
-      if (deviceToken.device_model === 'ios') {
+      if (deviceToken.device_type === deviceTokenTypes.ios) {
         expoPushNotificationMessage.set(deviceToken.token, message);
       }
     }
@@ -735,7 +741,7 @@ export class ReminderService {
       );
       // await this.markRemindersAsSent(reminderIdsMarkAsCompleted);
       if (invalidTokens.length) {
-        await this.userService.invalidateTokens(invalidTokens);
+        await this.userProvider.invalidateTokens(invalidTokens);
       }
       return {
         reminderIdsSendAsPush,
@@ -834,9 +840,9 @@ export class ReminderService {
       date,
     )) as ReminderWithUser[];
 
-    // send push reminders to users
-    const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
-      await this.sendPushRemindersToUers(remindersToNotifyUsers);
+    // // send push reminders to users
+    // const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
+    //   await this.sendPushRemindersToUers(remindersToNotifyUsers);
 
     // send email reminders to users
     const {
@@ -850,13 +856,15 @@ export class ReminderService {
     // update sent status
     await this.updateReminderSentStatus(
       reminderIdsSendToMail,
-      reminderIdsSendAsPush,
+      [],
+      // reminderIdsSendAsPush,
     );
 
     // update unsent status
     await this.updateUnsentStatus(
       unSendEmailReminderIds,
-      unSentPushReminderIds,
+      [],
+      // unSentPushReminderIds,
     );
   }
 }

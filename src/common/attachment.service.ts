@@ -20,11 +20,12 @@ export class AttachmentService {
         file,
         folderName,
       );
-      await this.saveUploadedFilesInDb(
+      const savedFiles = await this.saveUploadedFilesInDb(
         uploadedFiles,
         referanceId,
         referanceModel,
       );
+      return savedFiles;
     } catch (error) {
       console.log(error);
     }
@@ -109,11 +110,11 @@ export class AttachmentService {
       data: uploadedFiles.map((file) => ({
         reference_id: referanceId,
         reference_model: referanceModel,
-        file_name: file.file_name,
+        file_name: file.file_name ?? '',
         file_type: file.file_type,
         file_size: file.file_size,
         storage_type: file.storage_type,
-        file_url: (process.env.AWS_S3_BUCKET_URL ?? '') + file.storage_key,
+        storage_path: (process.env.AWS_S3_BUCKET_URL ?? '') + file.storage_key,
         storage_key: file.storage_key,
       })),
     });

@@ -17,6 +17,7 @@ import { AuthUser } from './auth-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateReminderScheduleDto } from './dto/update-reminder-schedule.dto';
 import { UpdateUserNotifcationSetttingsDto } from './dto/update-notifcation-service.dto';
+import { UpdatePushNotificationStatusDto } from './dto/update-push-notification-status.dto';
 
 @Controller('users')
 export class UsersController {
@@ -24,7 +25,7 @@ export class UsersController {
 
   @Get('me')
   async getMe(@AuthUser('id') authId: number) {
-    const user = await this.usersService.findOneById(authId);
+    const user = await this.usersService.getUserDetais(authId);
     return [user];
   }
 
@@ -57,7 +58,7 @@ export class UsersController {
   async updateProfilePicture(
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addMaxSizeValidator({ maxSize: 1024 * 1024 })
+        .addMaxSizeValidator({ maxSize: 1024 * 1024 * 5 }) // 5MB
         .addFileTypeValidator({ fileType: /(jpg|jpeg|png)$/ })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -97,6 +98,18 @@ export class UsersController {
     return [updatedUser, 'user reminder schedule updated'];
   }
 
+  @Put('me/remove-reminder-schedule')
+  async removeReminderSchedule(
+    @Body('schedule') schedule: string,
+    @AuthUser('id') authId: number,
+  ) {
+    const updatedUser = await this.usersService.removeReminderReminderSchedule(
+      authId,
+      schedule,
+    );
+    return [updatedUser, 'user reminder schedule removed'];
+  }
+
   @Put('me/update-notification-settings')
   async updateUserNotifcationSetttings(
     @Body()
@@ -108,5 +121,23 @@ export class UsersController {
       UpdateUserNotifcationSetttingsDto,
     );
     return [updatedUser, 'user notification settings updated'];
+  }
+
+  @Put('me/update-push-notification-status')
+  async updatePushNotificationStatus(
+    @Body() updatePushNotificationStatusDto: UpdatePushNotificationStatusDto,
+    @AuthUser('id') authId: number,
+  ) {
+    const isUpdated = await this.usersService.updateUserNotifcationSetttings(
+      authId,
+      {
+        push_notification: updatePushNotificationStatusDto.is_push_notification,
+      },
+    );
+    await this.usersService.updateUserTokens(
+      authId,
+      updatePushNotificationStatusDto.is_push_notification,
+    );
+    return [isUpdated, 'user push notification status updated'];
   }
 }

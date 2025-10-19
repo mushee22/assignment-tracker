@@ -261,6 +261,14 @@ export class AuthService {
     }
   }
 
+  async logout(userId: number) {
+    const user = await this.usersService.findOneById(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    await this.usersService.updateUserTokens(user.id, false);
+  }
+
   private async googleSignIn(token: string) {
     try {
       const payload = await this.socialLoginService.verifyGoogleToken(token);

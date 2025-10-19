@@ -3,18 +3,18 @@ import { AssigneFindQuery } from 'src/assignment/dto/assignment.dto';
 
 export function deadlineMinus(due_date: Date, schedule: string) {
   const dueDate = new Date(due_date);
-  const [time, unit] = schedule.split(',');
+  const [time, unit] = schedule.split('_');
   switch (unit) {
-    case 'minutes':
+    case 'MINUTES':
       dueDate.setMinutes(dueDate.getMinutes() - Number(time));
       break;
-    case 'hours':
+    case 'HOURS':
       dueDate.setHours(dueDate.getHours() - Number(time));
       break;
-    case 'days':
+    case 'DAYS':
       dueDate.setDate(dueDate.getDate() - Number(time));
       break;
-    case 'weeks':
+    case 'WEEKS':
       dueDate.setDate(dueDate.getDate() - Number(time) * 7);
       break;
     default:
@@ -82,7 +82,8 @@ export const generateFindOrderByQuery = (query: AssigneFindQuery) => {
   sort.forEach((item) => {
     const relations = item.split('.');
     if (relations.length === 1) {
-      orderBy[relations[0]] = 'desc';
+      const [field, direction] = relations[0].split(':');
+      orderBy[field] = direction || 'desc';
       return orderBy;
     }
     orderBy[relations[0]] = {

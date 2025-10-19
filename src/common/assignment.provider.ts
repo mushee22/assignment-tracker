@@ -5,7 +5,7 @@ import { AssignmentStatus, Prisma } from '@prisma/client';
 @Injectable()
 export class AssignmentProvider {
   constructor(private readonly prismaService: PrismaService) {}
-  async findOne(userid: number, id: number) {
+  async findOne(userid: number, id: number, isNote?: boolean) {
     const assignment = await this.prismaService.assignment.findUnique({
       where: {
         id,
@@ -13,6 +13,7 @@ export class AssignmentProvider {
       },
       include: {
         user: true,
+        notes: isNote,
       },
     });
 
@@ -32,6 +33,8 @@ export class AssignmentProvider {
       page_size?: number;
       cursor?: number;
     },
+    isNote?: boolean,
+    isShared?: boolean,
   ) {
     const assignments = await this.prismaService.assignment.findMany({
       take: pagination?.page_size || 10,
@@ -42,10 +45,30 @@ export class AssignmentProvider {
       },
       orderBy: {
         ...orderBy,
-        id: 'desc',
       },
-      cursor: {
-        id: pagination?.cursor,
+      ...(pagination?.cursor
+        ? {
+            cursor: {
+              id: pagination?.cursor,
+            },
+          }
+        : {}),
+      include: {
+        subject: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        notes: isNote || false,
+        assignment_members: isShared || false,
       },
     });
 

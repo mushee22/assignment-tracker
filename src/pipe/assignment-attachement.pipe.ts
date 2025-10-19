@@ -8,21 +8,18 @@ import {
 @Injectable()
 export class AssignmentAttachmentPipe implements PipeTransform {
   transform(value: any) {
-    if (!value) return true;
+    if (!value) return null;
+
+    const MAX_ASSIGNMENT_ATTACHMENT_SIZE =
+      process.env.MAX_ASSIGNMENT_ATTACHMENT_SIZE || 5 * 1024 * 1024; //5MB
+    const ALLOWED_FILE_TYPES =
+      process.env.ASSIGNMENT_ATTACHMENT_ALLOWED_FILE_TYPES ||
+      'pdf,docx,doc,xlsx,xls,ppt,pptx,jpg,jpeg,png';
+    const allowedFileTypes = ALLOWED_FILE_TYPES.split(',');
 
     if (!Array.isArray(value)) {
-      const size = process.env.MAX_FILE_SIZE || 20 * 1024 * 1024; //20MB
-      const fileSize = (value as Express.Multer.File)?.size;
-      if (fileSize > Number(size)) {
-        throw new HttpException(
-          `File size must be less than ${size} bytes`,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-    }
-
-    for (const file of value as Array<Express.Multer.File>) {
-      const size = process.env.MAX_FILE_SIZE || 20 * 1024 * 1024; //20MB
+      const file = value as Express.Multer.File;
+      const size = MAX_ASSIGNMENT_ATTACHMENT_SIZE;
       const fileSize = file?.size;
       if (fileSize > Number(size)) {
         throw new HttpException(
@@ -30,8 +27,40 @@ export class AssignmentAttachmentPipe implements PipeTransform {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      const filesNameSplit = file?.originalname.split('.');
+      const fileType = filesNameSplit[filesNameSplit.length - 1];
+      if (!allowedFileTypes.includes(fileType)) {
+        throw new HttpException(
+          `File type must be ${ALLOWED_FILE_TYPES}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return value as Express.Multer.File;
     }
 
-    return true;
+    for (const file of value as Array<Express.Multer.File>) {
+      const size = MAX_ASSIGNMENT_ATTACHMENT_SIZE;
+      const fileSize = file?.size;
+      if (fileSize > Number(size)) {
+        throw new HttpException(
+          `File size must be less than ${size} bytes`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const filesNameSplit = file?.originalname.split('.');
+      const fileType = filesNameSplit[filesNameSplit.length - 1];
+
+      if (!allowedFileTypes.includes(fileType)) {
+        throw new HttpException(
+          `File type must be ${ALLOWED_FILE_TYPES}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    return value as Array<Express.Multer.File>;
   }
 }

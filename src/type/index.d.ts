@@ -51,3 +51,8 @@ export type ReminderUnsendHistoryData = {
   reason?: string;
   data?: string;
 };
+
+export type ReminderScheduleProps = {
+  is_enabled: boolean;
+  is_default: boolean;
+};

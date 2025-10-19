@@ -9,3 +9,9 @@ export class UpdateReminderScheduleDto {
   @IsString()
   schedule: string;
 }
+
+export class RemoveReminderScheduleDto {
+  @IsNotEmpty()
+  @IsString()
+  schedule: string;
+}

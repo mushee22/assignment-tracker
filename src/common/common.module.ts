@@ -5,6 +5,7 @@ import { AssignmentProvider } from './assignment.provider';
 import { UserProvider } from './user.provider';
 import { SocialLoginService } from './social-login.service';
 import { AttachmentService } from './attachment.service';
+import { AssignmentNoteProvider } from './assignment-note.provider';
 
 @Global()
 @Module({
@@ -15,6 +16,7 @@ import { AttachmentService } from './attachment.service';
     UserProvider,
     SocialLoginService,
     AttachmentService,
+    AssignmentNoteProvider,
   ],
   exports: [
     ExpoService,
@@ -23,6 +25,7 @@ import { AttachmentService } from './attachment.service';
     UserProvider,
     SocialLoginService,
     AttachmentService,
+    AssignmentNoteProvider,
   ],
 })
 export class CommonModule {}

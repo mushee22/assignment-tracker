@@ -1,4 +1,4 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSubjectDto } from './dto/create-subject-dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
@@ -42,11 +42,14 @@ export class SubjectService {
     return subjects;
   }
 
-  async findOne(userId: number, id: number) {
+  async findOne(userId: number, id: number, isAssignment = false) {
     const subject = await this.prismaService.subject.findUnique({
       where: {
         id,
         user_id: userId,
+      },
+      include: {
+        assignments: isAssignment,
       },
     });
 
@@ -111,7 +114,14 @@ export class SubjectService {
   }
 
   async delete(userId: number, id: number) {
-    const isExist = await this.findOne(userId, id);
+    const isExist = await this.findOne(userId, id, true);
+
+    if (isExist.assignments.length) {
+      throw new HttpException(
+        "Subject already assigned to assignment, So can't delete",
+        HttpStatus.FORBIDDEN,
+      );
+    }
 
     const deleted = await this.prismaService.subject.delete({
       where: {

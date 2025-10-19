@@ -12,12 +12,13 @@ import { SaveDeviceTokenDto } from './dto/save-device-token.dto';
 import { CreateNewPasswordDto } from './dto/create-new-password.dto';
 import { comparePasswords, hashPassword } from 'src/lib/security';
 import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
-import { assignment_reminder_schedules } from 'src/constant';
+import { assignment_reminder_schedules, deviceTokenTypes } from 'src/constant';
 import { UpdateUserNotifcationSetttingsDto } from './dto/update-notifcation-service.dto';
 import { ReminderService } from 'src/reminder/reminder.service';
 import { UpdateReminderScheduleDto } from './dto/update-reminder-schedule.dto';
 import { AssignmentProvider } from 'src/common/assignment.provider';
 import { UserProvider } from 'src/common/user.provider';
+import { AttachmentService } from 'src/common/attachment.service';
 
 @Injectable()
 export class UsersService {
@@ -28,6 +29,7 @@ export class UsersService {
     private reminderService: ReminderService,
     private assignmentProvider: AssignmentProvider,
     private userProvider: UserProvider,
+    private attachmentService: AttachmentService,
   ) {}
 
   async findByEmail(email: string) {
@@ -44,29 +46,21 @@ export class UsersService {
 
   async findOneById(id: number) {
     return await this.userProvider.findOneById(id);
-    // const user = await this.prisma.user.findUnique({
-    //   where: {
-    //     id,
-    //   },
-    //   include: {
-    //     profile: true,
-    //   },
-    // });
-
-    // if (!user) {
-    //   throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-    // }
-
-    // return user;
   }
 
-  private setDefaultReiminderSchedule() {
-    const defaultSchedule = assignment_reminder_schedules;
-    const defaultPreference = {};
-    for (const schedule in defaultSchedule) {
-      defaultPreference[schedule] = true;
-    }
-    return defaultPreference;
+  async getUserDetais(id: number) {
+    const user = await this.userProvider.findOneById(id);
+    const userAssignments = await this.prisma.assignment.groupBy({
+      where: {
+        user_id: id,
+      },
+      by: ['status'],
+      _count: true,
+    });
+    return {
+      user,
+      statistics: userAssignments,
+    };
   }
 
   async createUserProfile(userId: number) {
@@ -77,11 +71,6 @@ export class UsersService {
           assignment_reminder: true,
           push_notification: true,
           email_notification: true,
-          // notification: true,
-          // reminder: true,
-          reminder_schedules: {
-            ...this.setDefaultReiminderSchedule(),
-          },
         },
       },
     });
@@ -92,38 +81,39 @@ export class UsersService {
     data: UpdateReminderScheduleDto,
   ) {
     try {
-      const user = await this.findOneById(userId);
-      const notificationPreference = user?.profile
-        ?.notification_preference as Prisma.JsonObject;
-
-      if (!notificationPreference) {
-        throw new HttpException(
-          'Notification preference not found',
-          HttpStatus.NOT_FOUND,
-        );
+      const user = await this.userProvider.findOneById(userId);
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
       }
 
-      const schedule = notificationPreference.reminder_schedules;
+      const isExist = await this.userProvider.getUserScheduleBySchedule(
+        userId,
+        data.schedule,
+      );
 
-      if (!schedule) {
-        throw new HttpException(
-          'Reminder schedule not found',
-          HttpStatus.NOT_FOUND,
-        );
+      if (isExist) {
+        const updatedSchedule = await this.prisma.schedule.update({
+          where: {
+            id: isExist.id,
+          },
+          data: {
+            is_enabled: data.status,
+          },
+        });
+        return updatedSchedule;
       }
 
-      schedule[data.schedule] = data.status;
-
-      await this.prisma.profile.update({
-        where: {
-          id: userId,
-        },
+      const createdSchedule = await this.prisma.schedule.create({
         data: {
-          notification_preference: notificationPreference,
+          user_id: userId,
+          schedule: data.schedule,
+          is_enabled: data.status,
+          is_default: false,
         },
       });
 
       await this.reminderService.reValidateUserAssignmentReminders(userId);
+      return createdSchedule;
     } catch (_error) {
       throw new HttpException(
         'Failed to update reminder schedule status',
@@ -132,11 +122,45 @@ export class UsersService {
     }
   }
 
+  async removeReminderReminderSchedule(userId: number, schedule: string) {
+    const user = await this.userProvider.findOneById(userId);
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const scheduleExist = await this.prisma.schedule.findFirst({
+      where: {
+        user_id: userId,
+        schedule,
+      },
+    });
+
+    if (!scheduleExist) {
+      throw new HttpException(
+        'Reminder schedule not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (scheduleExist.is_default) {
+      throw new HttpException(
+        'Default schedule cannot be removed',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.prisma.schedule.delete({
+      where: {
+        id: scheduleExist.id,
+      },
+    });
+  }
+
   async updateUserNotifcationSetttings(
     userId: number,
     data: UpdateUserNotifcationSetttingsDto,
   ) {
-    const user = await this.findOneById(userId);
+    const user = await this.userProvider.findOneById(userId);
 
     const notificationPreference = user?.profile
       ?.notification_preference as Prisma.JsonObject;
@@ -193,6 +217,7 @@ export class UsersService {
       data,
     });
     await this.createUserProfile(createdUser.id);
+    await this.setDefaultReiminderSchedule(createdUser.id);
     return createdUser;
   }
 
@@ -258,7 +283,11 @@ export class UsersService {
         data: {
           user_id: userId,
           token: deviceInfo.token,
-          device_type: deviceInfo.device_type ?? '',
+          device_type: deviceInfo.device_type
+            ? deviceTokenTypes[
+                deviceInfo.device_type as keyof typeof deviceTokenTypes
+              ]
+            : deviceTokenTypes.none,
           device_id: deviceInfo.device_id,
           device_model: deviceInfo.device_model,
         },
@@ -273,29 +302,9 @@ export class UsersService {
     }
   }
 
-  async invalidateTokens(tokens: string[]) {
-    try {
-      await this.prisma.deviceToken.updateMany({
-        where: {
-          token: {
-            in: tokens,
-          },
-        },
-        data: {
-          is_active: false,
-        },
-      });
-    } catch (_error) {
-      throw new HttpException(
-        'Failed to invalidate tokens',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
   async createNewPassword(userId: number, data: CreateNewPasswordDto) {
     try {
-      const user = await this.findOneById(userId);
+      const user = await this.userProvider.findUserWithPassword(userId);
 
       if (!user) {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);
@@ -328,7 +337,61 @@ export class UsersService {
     }
   }
 
-  private async deleteIfuUserhaveProfilePicture(userId: number) {
+  async updateProfilePicture(userId: number, file: Express.Multer.File) {
+    try {
+      const user = await this.userProvider.findOneById(userId);
+      if (!user) {
+        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+      }
+      await this.deleteIfUserhaveProfilePicture(user.id);
+
+      const uploadedFiles = await this.attachmentService.uploadAttachent(
+        [file],
+        user.id,
+        Prisma.ModelName.User,
+        'profile-pictures',
+      );
+      const updatedUser = await this.prisma.profile.update({
+        where: {
+          user_id: userId,
+        },
+        data: {
+          profile_picture: uploadedFiles?.[0].storage_key
+            ? (process.env.AWS_S3_BUCKET_URL ?? '') +
+              uploadedFiles?.[0].storage_key
+            : '',
+        },
+      });
+      return updatedUser;
+    } catch (_error) {
+      console.log(_error);
+      throw new HttpException(
+        'Failed to update profile picture',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async updateUserTokens(userId: number, isActive?: boolean, token?: string) {
+    try {
+      await this.prisma.deviceToken.updateMany({
+        where: {
+          user_id: userId,
+          ...(token ? { token } : {}),
+        },
+        data: {
+          is_active: isActive ?? false,
+        },
+      });
+    } catch (_error) {
+      throw new HttpException(
+        'Failed to deactivate user tokens',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async deleteIfUserhaveProfilePicture(userId: number) {
     try {
       const attachment = await this.prisma.attachment.findFirst({
         where: {
@@ -352,43 +415,15 @@ export class UsersService {
     }
   }
 
-  async updateProfilePicture(userId: number, file: Express.Multer.File) {
-    try {
-      const user = await this.findOneById(userId);
-      if (!user) {
-        throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-      }
-      const uploadedFiles = await this.awsS3Service.uploadFiles(
-        [file],
-        'profile-pictures',
-      );
-      await this.deleteIfuUserhaveProfilePicture(user.id);
-      await this.prisma.attachment.createMany({
-        data: uploadedFiles.map((file) => ({
-          reference_id: user.id,
-          reference_model: Prisma.ModelName.User,
-          file_name: file.file_name,
-          file_type: file.file_type,
-          file_size: file.file_size,
-          storage_type: file.storage_type,
-          file_url: (process.env.AWS_S3_BUCKET_URL ?? '') + file.storage_key,
-          storage_key: file.storage_key,
-        })),
-      });
-      const updatedUser = await this.prisma.profile.update({
-        where: {
-          user_id: userId,
-        },
-        data: {
-          profile_picture: uploadedFiles[0].storage_key,
-        },
-      });
-      return updatedUser;
-    } catch (_error) {
-      throw new HttpException(
-        'Failed to update profile picture',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+  private async setDefaultReiminderSchedule(userId: number) {
+    const defaultSchedule = assignment_reminder_schedules;
+    await this.prisma.schedule.createMany({
+      data: defaultSchedule.map((schedule) => ({
+        user_id: userId,
+        schedule,
+        is_enabled: true,
+        is_default: true,
+      })),
+    });
   }
 }

@@ -6,6 +6,7 @@ import {
   IsInt,
   Min,
   IsEnum,
+  IsBoolean,
 } from 'class-validator';
 import { Priority } from '@prisma/client';
 import { Type } from 'class-transformer';
@@ -19,9 +20,9 @@ export class CreateAssignmentDto {
   @IsString()
   description?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsDateString()
-  start_date: string;
+  start_date?: string;
 
   @IsNotEmpty()
   @IsDateString()
@@ -35,4 +36,12 @@ export class CreateAssignmentDto {
   @IsEnum(Priority)
   @IsOptional()
   priority?: Priority = Priority.LOW;
+
+  @IsOptional()
+  @IsString({ each: true })
+  notes?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  is_reminder?: boolean = false;
 }

@@ -7,6 +7,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from 'src/lib/is-public';
 import { SocialLoginType } from '@prisma/client';
 import { comparePasswords, hashPassword } from 'src/lib/security';
+import { AuthUser } from 'src/users/auth-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -41,7 +42,7 @@ export class AuthController {
   }
 
   @Public()
-  @Post('forget-password')
+  @Post('forgot-password')
   async forgetPassword(@Body('email') email: string) {
     const token = await this.authService.forgotpassword(email);
     return [token, 'Password Reset Token Sent Successfully'];
@@ -79,5 +80,11 @@ export class AuthController {
   ) {
     const isPasswordValid = await comparePasswords(password, hashedPassword);
     return [isPasswordValid, 'Password Verified Successfully'];
+  }
+
+  @Post('logout')
+  async logout(@AuthUser('id') authId: number) {
+    await this.authService.logout(authId);
+    return [true, 'User Logged Out Successfully'];
   }
 }

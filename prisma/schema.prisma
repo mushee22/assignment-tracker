@@ -74,8 +74,6 @@ enum SocialLoginType {
   APPLE
 }
 
-
-
 model User {
   id Int @id @default(autoincrement())
   email String @unique
@@ -104,6 +102,7 @@ model User {
   device_tokens DeviceToken[]
   user_sessions UserSession[]
   assignment_members AssignmentMember[]
+  schedules Schedule[]
 
   profile Profile?
 
@@ -115,7 +114,7 @@ model Profile {
   id Int @id @default(autoincrement())
 
   user_id Int @unique
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   profile_picture String?
   notification_preference Json?
@@ -136,7 +135,7 @@ model Subject{
   color String?
 
   user_id Int
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -170,6 +169,8 @@ model Assignment {
   cancelled_at DateTime?
   overdue_date DateTime?
 
+  is_reminder Boolean @default(false)
+
   is_push_notification Boolean @default(true)
   is_email_notification Boolean @default(true)
 
@@ -178,13 +179,14 @@ model Assignment {
   progress Int @default(0)
 
   user_id Int
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete:  Cascade)
 
   subject_id Int
-  subject Subject @relation(fields: [subject_id], references: [id])
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: NoAction)
 
   notification_settings NotificationSettings[]
   assignment_members AssignmentMember[]
+  notes AssignmentNotes[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -197,16 +199,31 @@ model Assignment {
   @@map("assignments")
 }
 
+model AssignmentNotes {
+  id Int @id @default(autoincrement())
+
+  assignment_id Int
+  assignment Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+
+  content String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([assignment_id])
+  @@map("assignment_notes")
+}
+
 model NotificationSettings {
   id Int @id @default(autoincrement())
 
   is_global Boolean @default(false)
 
   user_id Int
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete:  Cascade)
 
   assignment_id Int?
-  assignment Assignment? @relation(fields: [assignment_id], references: [id])
+  assignment Assignment? @relation(fields: [assignment_id], references: [id], onDelete: NoAction)
 
   offset_minute Int
 
@@ -250,6 +267,28 @@ model Notification {
   @@map("notifications")
 }
 
+model Schedule {
+  id Int @id @default(autoincrement())
+  user_id Int
+  user User @relation(fields: [user_id], references: [id], onDelete:  Cascade)
+
+  schedule String
+  
+  type String @default("BEFORE")
+
+  is_enabled Boolean @default(true)
+
+  is_default Boolean @default(false)
+
+  is_global Boolean @default(true)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@map("schedules")
+}
+
 model Reminder {
   id Int @id @default(autoincrement())
   title String
@@ -269,7 +308,7 @@ model Reminder {
   data Json?
 
   user_id Int
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete:  Cascade)
 
   disabled_at DateTime?
   disabled_reason String?
@@ -294,7 +333,7 @@ model Reminder {
 model ReminderSendHistory {
   id Int @id @default(autoincrement())
   reminder_id Int
-  reminder Reminder @relation(fields: [reminder_id], references: [id])
+  reminder Reminder @relation(fields: [reminder_id], references: [id], onDelete: Cascade)
 
   sent_at DateTime?
 
@@ -345,7 +384,7 @@ model DeviceToken {
   is_active Boolean @default(true)
 
   user_id Int
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -380,7 +419,7 @@ model OTP {
   id Int @id @default(autoincrement())
   otp String
   user_id Int
-  user User @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
   expires_at DateTime
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -396,8 +435,8 @@ model AssignmentMember {
   user_id Int?
   is_system Boolean @default(false)
   email String
-  assignment Assignment @relation(fields: [assignment_id], references: [id])
-  user User? @relation(fields: [user_id], references: [id])
+  assignment Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade)
   guest_access_token String?
   guest_access_token_expires_at DateTime?
   is_accepted Boolean @default(true)

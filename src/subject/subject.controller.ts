@@ -25,40 +25,47 @@ export class SubjectController {
 
   @Get('/')
   @HttpCode(200)
-  findAll(@Query() query: SubjectFindQuery, @AuthUser('id') authId: number) {
-    const subjects = this.subjectService.findAll(authId, query);
+  async findAll(
+    @Query() query: SubjectFindQuery,
+    @AuthUser('id') authId: number,
+  ) {
+    const subjects = await this.subjectService.findAll(authId, query);
     return [subjects, 'Subjects fetched successfully'];
   }
 
   @Get('/:id')
   @HttpCode(200)
-  findOne(@Param('id') id: number, @AuthUser('id') authId: number) {
-    const subject = this.subjectService.findOne(authId, id);
+  async findOne(@Param('id') id: number, @AuthUser('id') authId: number) {
+    const subject = await this.subjectService.findOne(authId, id);
     return [subject, 'Subject fetched successfully'];
   }
 
   @Post('/')
   @HttpCode(201)
   @UseInterceptors(FileInterceptor('icon'))
-  create(
+  async create(
     @UploadedFile(new SubjectIconPipe()) icon: Express.Multer.File,
     @Body() createSubjectDto: CreateSubjectDto,
     @AuthUser('id') authId: number,
   ) {
-    const created = this.subjectService.create(authId, createSubjectDto, icon);
+    const created = await this.subjectService.create(
+      authId,
+      createSubjectDto,
+      icon,
+    );
     return [created, 'Subject created successfully'];
   }
 
   @Put('/:id')
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('icon'))
-  update(
+  async update(
     @Param('id') id: number,
     @Body() updateSubjectDto: UpdateSubjectDto,
     @AuthUser('id') authId: number,
     @UploadedFile(new SubjectIconPipe()) icon?: Express.Multer.File,
   ) {
-    const updated = this.subjectService.update(
+    const updated = await this.subjectService.update(
       authId,
       id,
       updateSubjectDto,
@@ -69,8 +76,8 @@ export class SubjectController {
 
   @Delete('/:id')
   @HttpCode(200)
-  remove(@Param('id') id: number, @AuthUser('id') authId: number) {
-    const deleteResult = this.subjectService.delete(authId, id);
+  async remove(@Param('id') id: number, @AuthUser('id') authId: number) {
+    const deleteResult = await this.subjectService.delete(authId, id);
     return [deleteResult, 'Subject deleted successfully'];
   }
 }
