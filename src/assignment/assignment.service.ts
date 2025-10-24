@@ -1,8 +1,5 @@
+import { MailerService } from '@nestjs-modules/mailer';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateAssignmentDto } from './dto/create-assignment.dto';
-import { UpdateAssignmentDto } from './dto/update-assignment.dto';
-import { AssigneFindQuery } from './dto/assignment.dto';
 import {
   Assignment,
   AssignmentStatus,
@@ -13,25 +10,28 @@ import {
   User,
 } from '@prisma/client';
 import { UploadResult } from 'src/aws-s3/interface/upload-interface';
-import { ReminderService } from 'src/reminder/reminder.service';
-import { UserProvider } from 'src/common/user.provider';
-import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
-import { ShareAssignmentDto } from './dto/share-assignment.dto';
-import { TokenService } from 'src/token/token.service';
-import { FirebaseService } from 'src/common/firebase.service';
-import { ExpoService } from 'src/common/expo.service';
-import { MailerService } from '@nestjs-modules/mailer';
-import { AssignmentWithUser, NotificationData } from 'src/type';
-import { SharedAssignmentQuery } from './interface';
-import { deviceTokenTypes, PriorityIndex } from 'src/constant';
-import { AttachmentService } from 'src/common/attachment.service';
+import { AssignmentNoteProvider } from 'src/common/assignment-note.provider';
 import { AssignmentProvider } from 'src/common/assignment.provider';
+import { AttachmentService } from 'src/common/attachment.service';
+import { ExpoService } from 'src/common/expo.service';
+import { FirebaseService } from 'src/common/firebase.service';
+import { UserProvider } from 'src/common/user.provider';
+import { deviceTokenTypes, PriorityIndex } from 'src/constant';
 import {
   generateFindOrderByQuery,
   generateFindWhereQuery,
 } from 'src/lib/helper';
 import { NotificationService } from 'src/notification/notification.service';
-import { AssignmentNoteProvider } from 'src/common/assignment-note.provider';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ReminderService } from 'src/reminder/reminder.service';
+import { TokenService } from 'src/token/token.service';
+import { AssignmentWithUser, NotificationData } from 'src/type';
+import { AssigneFindQuery } from './dto/assignment.dto';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { ShareAssignmentDto } from './dto/share-assignment.dto';
+import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
+import { SharedAssignmentQuery } from './interface';
 
 @Injectable()
 export class AssignmentService {
@@ -67,8 +67,39 @@ export class AssignmentService {
     return assignments;
   }
 
-  async findOne(userid: number, id: number) {
-    const assignment = await this.assignmentProvider.findOne(userid, id);
+  async getAssignmentDetails(userId: number, id: number) {
+    const assignment = await this.findOne(userId, id);
+    const attachments = await this.attachmentService.getAttachmentByReferanceId(
+      id,
+      Prisma.ModelName.Assignment,
+    );
+
+    return {
+      assignment,
+      attachement: attachments,
+    };
+  }
+
+  async getUserAssignmentStatistics(userId: number) {
+    const totalAssignments =
+      await this.assignmentProvider.getTotalUserAssignments(userId, true);
+    const completedAssignments =
+      await this.assignmentProvider.getUserCompletedAssignments(userId, true);
+    const pendingAssignments =
+      await this.assignmentProvider.getUserPendingAssignments(userId, true);
+    const overdueAssignments =
+      await this.assignmentProvider.getUserOverdueAssignments(userId, true);
+
+    return {
+      total: totalAssignments,
+      completed: completedAssignments,
+      pending: pendingAssignments,
+      overdue: overdueAssignments,
+    };
+  }
+
+  async findOne(userId: number, id: number) {
+    const assignment = await this.assignmentProvider.findOne(userId, id);
 
     if (!assignment) {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
@@ -82,45 +113,57 @@ export class AssignmentService {
     createAssignmentDto: CreateAssignmentDto,
     attachments: Array<Express.Multer.File>,
   ) {
-    const user = await this.userProvider.findOneById(userId);
-    const notificationPreference = user.profile
-      ?.notification_preference as Prisma.JsonObject;
-    const isPushNotification =
-      notificationPreference?.is_push_notification === 'true';
-    const isEmailNotification =
-      notificationPreference?.is_email_notification === 'true';
+    try {
+      const user = await this.userProvider.findOneById(userId);
+      const notificationPreference = user.profile
+        ?.notification_preference as Prisma.JsonObject;
+      const isPushNotification =
+        notificationPreference?.is_push_notification === 'true';
+      const isEmailNotification =
+        notificationPreference?.is_email_notification === 'true';
 
-    const created = await this.assignmentProvider.create(userId, {
-      ...createAssignmentDto,
-      priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
-      is_push_notification: createAssignmentDto.is_reminder
-        ? true
-        : isPushNotification,
-      is_email_notification: createAssignmentDto.is_reminder
-        ? true
-        : isEmailNotification,
-      is_reminder: createAssignmentDto.is_reminder,
-    });
+      const { notes, due_date, ...rest } = createAssignmentDto;
 
-    if (attachments.length > 0) {
-      await this.attachmentService.uploadAttachent(
-        attachments,
-        created.id,
-        Prisma.ModelName.Assignment,
-        'assignments',
-      );
+      const dueDateString = new Date(due_date).toISOString();
+
+      const created = await this.assignmentProvider.create(userId, {
+        ...rest,
+        due_date: dueDateString,
+        priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
+        is_push_notification: createAssignmentDto.is_reminder
+          ? true
+          : isPushNotification,
+        is_email_notification: createAssignmentDto.is_reminder
+          ? true
+          : isEmailNotification,
+        is_reminder: createAssignmentDto.is_reminder,
+      });
+
+      if (attachments) {
+        await this.attachmentService.uploadAttachent(
+          attachments,
+          created.id,
+          Prisma.ModelName.Assignment,
+          'assignments',
+        );
+      }
+
+      if (notes && notes.length > 0) {
+        await this.assignmentNoteProvider.createAssignmentNote(
+          created.id,
+          notes,
+        );
+      }
+
+      await this.reminderService.createAssignmentReminder(userId, created.id);
+
+      return created;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw error;
     }
-
-    if (createAssignmentDto.notes?.length) {
-      await this.assignmentNoteProvider.createAssignmentNote(
-        created.id,
-        createAssignmentDto.notes,
-      );
-    }
-
-    await this.reminderService.createAssignmentReminder(userId, created.id);
-
-    return created;
   }
 
   async update(
@@ -199,20 +242,19 @@ export class AssignmentService {
 
   async delete(userid: number, id: number) {
     const assignment = await this.findOne(userid, id);
+    await this.deleteAttacheMentByAssimentId(assignment.id);
     const deleted = await this.prismaService.assignment.delete({
       where: {
         id: assignment.id,
       },
     });
+
     await this.reminderService.deleteAssignmentReminder(
       assignment.user_id,
       deleted.id,
       [ReminderType.AUTO, ReminderType.CUSTOM],
     );
     await this.assignmentNoteProvider.deleteAllAssignmentNotes(deleted.id);
-    if (deleted) {
-      await this.deleteAttacheMentByAssimentId(deleted.id);
-    }
   }
 
   async getAssignmentNotes(userId: number, assignmentId: number) {
@@ -234,9 +276,14 @@ export class AssignmentService {
     );
   }
 
-  async deleteAssignmentNote(userId: number, noteId: number) {
+  async deleteAssignmentNote(
+    userId: number,
+    assignmentId: number,
+    noteId: number,
+  ) {
     return await this.assignmentNoteProvider.deleteAssignmentNotes(
       userId,
+      assignmentId,
       noteId,
     );
   }
@@ -265,7 +312,6 @@ export class AssignmentService {
     assignmentId: number,
   ) {
     try {
-      console.log(newAttachments);
       if (!newAttachments || newAttachments.length === 0) {
         throw new HttpException(
           'New attachment is required',

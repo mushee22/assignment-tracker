@@ -8,7 +8,7 @@ import {
 @Injectable()
 export class SubjectIconPipe implements PipeTransform {
   transform(value: any) {
-    if (!value) return true;
+    if (!value) return null;
 
     const size = process.env.MAX_FILE_SIZE || 1024 * 1024;
     const fileSize = (value as Express.Multer.File)?.size;
@@ -28,6 +28,6 @@ export class SubjectIconPipe implements PipeTransform {
       );
     }
 
-    return true;
+    return value as Express.Multer.File;
   }
 }

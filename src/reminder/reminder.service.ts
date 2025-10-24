@@ -1,44 +1,39 @@
+import { MailerService } from '@nestjs-modules/mailer';
 import {
-  forwardRef,
   HttpException,
   HttpStatus,
-  Inject,
-  Injectable,
+  Injectable
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ReminderCreateDto } from './dto/reminder-create-dto';
 import {
-  ReminderStatus,
+  AssignmentStatus,
+  DeviceToken,
   NotificationType,
   Prisma,
-  AssignmentStatus,
   ReminderSentType,
+  ReminderStatus,
   ReminderType,
-  DeviceToken,
 } from '@prisma/client';
-import { MailerService } from '@nestjs-modules/mailer';
+import { AssignmentProvider } from 'src/common/assignment.provider';
+import { ExpoService } from 'src/common/expo.service';
+import { FirebaseService } from 'src/common/firebase.service';
+import { UserProvider } from 'src/common/user.provider';
+import { deviceTokenTypes } from 'src/constant';
 import { deadlineMinus } from 'src/lib/helper';
+import { NotificationService } from 'src/notification/notification.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import {
   EmailReminders,
   NotificationData,
-  ReminderScheduleProps,
   ReminderUnsendHistoryData,
-  ReminderWithUser,
+  ReminderWithUser
 } from 'src/type';
-import { UsersService } from 'src/users/users.service';
-import { FirebaseService } from 'src/common/firebase.service';
-import { ExpoService } from 'src/common/expo.service';
-import { AssignmentProvider } from 'src/common/assignment.provider';
-import { NotificationService } from 'src/notification/notification.service';
-import { deviceTokenTypes } from 'src/constant';
-import { UserProvider } from 'src/common/user.provider';
+import { ReminderCreateDto } from './dto/reminder-create-dto';
 
 @Injectable()
 export class ReminderService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly mailerService: MailerService,
-    @Inject(forwardRef(() => UsersService))
     private readonly userProvider: UserProvider,
     private readonly fcmService: FirebaseService,
     private readonly expoService: ExpoService,
@@ -338,10 +333,10 @@ export class ReminderService {
 
       await this.insertDataToReminder(reminders);
     } catch (_error) {
-      throw new HttpException(
-        'somthing went wrong',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      if(_error instanceof HttpException) {
+        throw _error;
+      }
+       throw _error
     }
   }
 

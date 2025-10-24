@@ -46,7 +46,20 @@ export const generateFindWhereQuery = (query: AssigneFindQuery) => {
           contains: query.q,
         },
       },
+      {
+        notes: {
+          some: {
+            content: {
+              contains: query.q,
+            },
+          },
+        },
+      },
     ];
+  }
+
+  if (query.priority) {
+    where.priority = query.priority;
   }
 
   if (query.start) {

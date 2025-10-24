@@ -40,12 +40,17 @@ export class AssignmentNoteProvider {
     await this.createAssignmentNote(assignmentId, [notes]);
   }
 
-  async deleteAssignmentNotes(userId: number, id: number) {
+  async deleteAssignmentNotes(
+    userId: number,
+    assignmentId: number,
+    noteId: number,
+  ) {
     await this.prismaService.assignmentNotes.deleteMany({
       where: {
-        id: id,
+        id: noteId,
         assignment: {
           user_id: userId,
+          id: assignmentId,
         },
       },
     });

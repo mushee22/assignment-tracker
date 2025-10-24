@@ -65,6 +65,23 @@ export class SubjectService {
     createSubjectDto: CreateSubjectDto,
     icon?: Express.Multer.File,
   ) {
+    const isExist = await this.prismaService.subject.findFirst({
+      where: {
+        name: {
+          equals: createSubjectDto.name,
+          mode: 'insensitive',
+        },
+        user_id: userId,
+      },
+    });
+
+    if (isExist) {
+      throw new HttpException(
+        'Subject with name already exist',
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const created = await this.prismaService.subject.create({
       data: {
         ...createSubjectDto,

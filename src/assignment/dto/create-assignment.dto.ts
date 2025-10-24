@@ -9,7 +9,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Priority } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateAssignmentDto {
   @IsNotEmpty()
@@ -39,9 +39,10 @@ export class CreateAssignmentDto {
 
   @IsOptional()
   @IsString({ each: true })
+  // @Transform(({ value }: { value: string }) => value ? JSON.parse(value) : [])
   notes?: string[];
 
   @IsOptional()
-  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
   is_reminder?: boolean = false;
 }

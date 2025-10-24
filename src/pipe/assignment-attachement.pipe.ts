@@ -1,8 +1,8 @@
 import {
-  PipeTransform,
-  Injectable,
   HttpException,
   HttpStatus,
+  Injectable,
+  PipeTransform,
 } from '@nestjs/common';
 
 @Injectable()
@@ -29,10 +29,10 @@ export class AssignmentAttachmentPipe implements PipeTransform {
       }
 
       const filesNameSplit = file?.originalname.split('.');
-      const fileType = filesNameSplit[filesNameSplit.length - 1];
+      const fileType = filesNameSplit[filesNameSplit.length - 1]?.toLowerCase();
       if (!allowedFileTypes.includes(fileType)) {
         throw new HttpException(
-          `File type must be ${ALLOWED_FILE_TYPES}`,
+          `File type must be ${ALLOWED_FILE_TYPES} Your file type is ${fileType}`,
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -53,9 +53,9 @@ export class AssignmentAttachmentPipe implements PipeTransform {
       const filesNameSplit = file?.originalname.split('.');
       const fileType = filesNameSplit[filesNameSplit.length - 1];
 
-      if (!allowedFileTypes.includes(fileType)) {
+      if (!allowedFileTypes.includes(fileType?.toLowerCase())) {
         throw new HttpException(
-          `File type must be ${ALLOWED_FILE_TYPES}`,
+          `File type must be ${ALLOWED_FILE_TYPES} Your file type of ${file.originalname} is ${fileType}`,
           HttpStatus.BAD_REQUEST,
         );
       }

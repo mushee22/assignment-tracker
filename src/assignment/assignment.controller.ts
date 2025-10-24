@@ -1,29 +1,28 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Put,
-  Delete,
-  Body,
-  Param,
   Query,
-  UseInterceptors,
   Req,
   UploadedFiles,
-  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { AssignmentService } from './assignment.service';
-import { CreateAssignmentDto } from './dto/create-assignment.dto';
-import { UpdateAssignmentDto } from './dto/update-assignment.dto';
-import { AssigneFindQuery } from './dto/assignment.dto';
-import { AuthUser } from '../users/auth-user.decorator';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { AssignmentAttachmentPipe } from 'src/pipe/assignment-attachement.pipe';
-import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
-import { ShareAssignmentDto } from './dto/share-assignment.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { User } from '@prisma/client';
 import { UserInterceptor } from 'src/interceptor/user.interceptor';
 import { Public } from 'src/lib/is-public';
-import { User } from '@prisma/client';
+import { AssignmentAttachmentPipe } from 'src/pipe/assignment-attachement.pipe';
+import { AuthUser } from '../users/auth-user.decorator';
+import { AssignmentService } from './assignment.service';
+import { AssigneFindQuery } from './dto/assignment.dto';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { ShareAssignmentDto } from './dto/share-assignment.dto';
+import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
 @Controller('assignment')
 export class AssignmentController {
@@ -46,8 +45,16 @@ export class AssignmentController {
     return [assignment, 'Shared Assignments fetched successfully'];
   }
 
+  @Get('statistics/')
+  @UseInterceptors(UserInterceptor)
+  async getUserAssignmentStatistics(@AuthUser('id') authId: number) {
+    const assignment =
+      await this.assignmentService.getUserAssignmentStatistics(authId);
+    return [assignment, 'Shared Assignments fetched successfully'];
+  }
+
   @Post('/')
-  @UseInterceptors(FileInterceptor('attachments'))
+  @UseInterceptors(FilesInterceptor('attachments'))
   async createAssignment(
     @UploadedFiles(new AssignmentAttachmentPipe())
     attachments: Array<Express.Multer.File>,
@@ -64,7 +71,10 @@ export class AssignmentController {
 
   @Get('/:id')
   async getAssignment(@Param('id') id: number, @AuthUser('id') authId: number) {
-    const assignment = await this.assignmentService.findOne(id, authId);
+    const assignment = await this.assignmentService.getAssignmentDetails(
+      authId,
+      id,
+    );
     return [assignment, 'Assignment fetched successfully'];
   }
 
@@ -84,7 +94,7 @@ export class AssignmentController {
 
   @Get('/:id/notes')
   async getNotes(@Param('id') id: number, @AuthUser('id') authId: number) {
-    const notes = await this.assignmentService.getAssignmentNotes(id, authId);
+    const notes = await this.assignmentService.getAssignmentNotes(authId, id);
     return [notes, 'Assignment notes fetched successfully'];
   }
 
@@ -103,8 +113,16 @@ export class AssignmentController {
   }
 
   @Delete('/:id/notes')
-  async deleteNote(@Param('id') id: number, @AuthUser('id') authId: number) {
-    await this.assignmentService.deleteAssignmentNote(authId, id);
+  async deleteNote(
+    @Param('id') assignmentId: number,
+    @AuthUser('id') authId: number,
+    @Body('note_id') noteId: number,
+  ) {
+    await this.assignmentService.deleteAssignmentNote(
+      authId,
+      assignmentId,
+      noteId,
+    );
     return [true, 'Assignment notes deleted successfully'];
   }
 
@@ -162,7 +180,6 @@ export class AssignmentController {
 
   @Post('/:id/attachments')
   @UseInterceptors(FilesInterceptor('attachments'))
-  // @UserInterceptor(FileInterceptor('attachments'))
   async uploadAttachment(
     @Param('id') id: number,
     @UploadedFiles(new AssignmentAttachmentPipe())
@@ -238,15 +255,13 @@ export class AssignmentController {
   @Delete('/:id/attachments/')
   async deleteAttachment(
     @Param('id') id: number,
-    @Body('ids') attachmentIds: number[],
+    @Body('id') attachmentIds: number,
     @AuthUser('id') authId: number,
   ) {
     const deleteResult =
-      await this.assignmentService.deleteAssigmentAttachement(
-        authId,
-        id,
+      await this.assignmentService.deleteAssigmentAttachement(authId, id, [
         attachmentIds,
-      );
+      ]);
     return [deleteResult, 'Attachment deleted successfully'];
   }
 

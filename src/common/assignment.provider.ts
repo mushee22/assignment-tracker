@@ -1,11 +1,11 @@
-import { PrismaService } from 'src/prisma/prisma.service';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { AssignmentStatus, Prisma } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class AssignmentProvider {
   constructor(private readonly prismaService: PrismaService) {}
-  async findOne(userid: number, id: number, isNote?: boolean) {
+  async findOne(userid: number, id: number) {
     const assignment = await this.prismaService.assignment.findUnique({
       where: {
         id,
@@ -13,7 +13,8 @@ export class AssignmentProvider {
       },
       include: {
         user: true,
-        notes: isNote,
+        subject: true,
+        notes: true,
       },
     });
 
@@ -36,9 +37,12 @@ export class AssignmentProvider {
     isNote?: boolean,
     isShared?: boolean,
   ) {
+    const currentPage = pagination?.page || 1;
+    const pageSize = pagination?.page_size || 10;
+    const skip = (currentPage - 1) * pageSize;
     const assignments = await this.prismaService.assignment.findMany({
-      take: pagination?.page_size || 10,
-      skip: pagination?.cursor ? 1 : 0,
+      take: pageSize,
+      skip: skip,
       where: {
         user_id: userId,
         ...query,
@@ -72,15 +76,11 @@ export class AssignmentProvider {
       },
     });
 
-    const nextCursor =
-      assignments.length > 0 ? assignments[assignments.length - 1].id : null;
-
-    const hasNext = assignments.length === pagination?.page_size || null;
+    const hasNext = assignments.length === pageSize || false;
 
     return {
       assignments,
       meta: {
-        next: nextCursor,
         has_next: hasNext,
       },
     };
@@ -154,5 +154,81 @@ export class AssignmentProvider {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  async getTotalUserAssignments(userId: number, isCount = false) {
+    if (!isCount) {
+      return await this.prismaService.assignment.findMany({
+        where: {
+          user_id: userId,
+        },
+      });
+    }
+
+    return await this.prismaService.assignment.count({
+      where: {
+        user_id: userId,
+      },
+    });
+  }
+
+  async getUserCompletedAssignments(userId: number, isCount = false) {
+    if (!isCount) {
+      return await this.prismaService.assignment.findMany({
+        where: {
+          user_id: userId,
+          status: AssignmentStatus.COMPLETED,
+        },
+      });
+    }
+
+    return await this.prismaService.assignment.count({
+      where: {
+        user_id: userId,
+        status: AssignmentStatus.COMPLETED,
+      },
+    });
+  }
+
+  async getUserPendingAssignments(userId: number, isCount = false) {
+    if (!isCount) {
+      return await this.prismaService.assignment.findMany({
+        where: {
+          user_id: userId,
+          status: AssignmentStatus.PENDING,
+        },
+      });
+    }
+
+    return await this.prismaService.assignment.count({
+      where: {
+        user_id: userId,
+        status: AssignmentStatus.PENDING,
+      },
+    });
+  }
+
+  async getUserOverdueAssignments(userId: number, isCount = false) {
+    if (!isCount) {
+      return await this.prismaService.assignment.findMany({
+        where: {
+          user_id: userId,
+          status: AssignmentStatus.PENDING,
+          due_date: {
+            lt: new Date().toISOString(),
+          },
+        },
+      });
+    }
+
+    return await this.prismaService.assignment.count({
+      where: {
+        user_id: userId,
+        status: AssignmentStatus.PENDING,
+        due_date: {
+          lt: new Date().toISOString(),
+        },
+      },
+    });
   }
 }
