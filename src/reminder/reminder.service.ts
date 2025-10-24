@@ -1,9 +1,5 @@
 import { MailerService } from '@nestjs-modules/mailer';
-import {
-  HttpException,
-  HttpStatus,
-  Injectable
-} from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
   AssignmentStatus,
   DeviceToken,
@@ -25,7 +21,7 @@ import {
   EmailReminders,
   NotificationData,
   ReminderUnsendHistoryData,
-  ReminderWithUser
+  ReminderWithUser,
 } from 'src/type';
 import { ReminderCreateDto } from './dto/reminder-create-dto';
 
@@ -333,10 +329,10 @@ export class ReminderService {
 
       await this.insertDataToReminder(reminders);
     } catch (_error) {
-      if(_error instanceof HttpException) {
+      if (_error instanceof HttpException) {
         throw _error;
       }
-       throw _error
+      throw _error;
     }
   }
 

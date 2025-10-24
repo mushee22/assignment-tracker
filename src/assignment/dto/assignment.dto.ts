@@ -2,7 +2,7 @@ import { AssignmentStatus, Priority } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
-export class AssigneFindQuery  {
+export class AssigneFindQuery {
   @IsOptional()
   @IsString()
   q?: string;
@@ -28,7 +28,7 @@ export class AssigneFindQuery  {
   date?: string;
 
   @IsOptional()
- @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInt(value))
   subject_id?: number;
 
   @IsOptional()
@@ -40,7 +40,7 @@ export class AssigneFindQuery  {
   page_size?: number;
 
   @IsOptional()
- @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInt(value))
   cursor?: number;
 
   @IsOptional()
