@@ -96,13 +96,14 @@ export class AssignmentProvider {
   }
 
   async update(userid: number, id: number, data: Prisma.AssignmentUpdateInput) {
-    return await this.prismaService.assignment.update({
+    const updatedAssignment = await this.prismaService.assignment.update({
       where: {
         id,
         user_id: userid,
       },
       data,
     });
+    return updatedAssignment;
   }
 
   async markAsCompleted(userid: number, id: number) {

@@ -181,10 +181,14 @@ export class AssignmentService {
       ? PriorityIndex[updateAssignmentDto.priority]
       : assignment.priority_index;
 
-    const updated = await this.assignmentProvider.update(userId, id, {
-      ...updateAssignmentDto,
-      priority_index: priorityIndex,
-    });
+    const updated = await this.assignmentProvider.update(
+      userId,
+      assignment.id,
+      {
+        ...updateAssignmentDto,
+        priority_index: priorityIndex,
+      },
+    );
     await this.reminderService.updateAssignmentReminder(userId, updated.id);
 
     return updated;

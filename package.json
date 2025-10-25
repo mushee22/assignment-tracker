@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prepare": "husky",
     "docker:build": "docker build -t ghcr.io/mushee22/mushee22/assignment-tracker:latest .",
-    "docker:push": "docker push ghcr.io/mushee22/mushee22/assignment-tracker:latest"
+    "docker:push": "docker push ghcr.io/mushee22/mushee22/assignment-tracker:latest",
+    "git:mirror": "git push --mirror https://github.com/quickmindlabs/assignment-tracker-be.git"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { AssignmentStatus } from 'generated/prisma';
 import { AssigneFindQuery } from 'src/assignment/dto/assignment.dto';
 
 export function deadlineMinus(due_date: Date, schedule: string) {
@@ -27,7 +28,14 @@ export const generateFindWhereQuery = (query: AssigneFindQuery) => {
   const where: Prisma.AssignmentWhereInput = {};
 
   if (query.status) {
-    where.status = query.status;
+    if (query.status == AssignmentStatus.OVERDUE) {
+      where.due_date = {
+        lt: new Date(),
+      };
+      where.status = AssignmentStatus.PENDING;
+    } else {
+      where.status = query.status;
+    }
   }
 
   if (query.subject_id) {
