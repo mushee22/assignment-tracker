@@ -243,7 +243,7 @@ export class AuthService {
       });
       return newToken;
     } catch (_error) {
-       if (_error instanceof HttpException) {
+      if (_error instanceof HttpException) {
         throw _error;
       }
       console.log(_error);
@@ -252,7 +252,6 @@ export class AuthService {
         'Failed to resend OTP',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-
     }
   }
 

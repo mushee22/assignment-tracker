@@ -14,11 +14,7 @@ export class NotificationController {
     @Body('user_id') userId: number,
     @Body('message') message: string,
   ) {
-    await this.notificationService.sendTestNotification(
-      userId,
-      title,
-      message,
-    );
+    await this.notificationService.sendTestNotification(userId, title, message);
     return ['Test notification sent successfully'];
   }
 

@@ -649,9 +649,8 @@ export class ReminderService {
       }
 
       if (user.device_tokens.length) {
-        const {
-          expoPushNotificationMessage: userExpoPushNotificationMessage,
-        } = this.setNotifcationMessageForDevices(user.device_tokens, reminder);
+        const { expoPushNotificationMessage: userExpoPushNotificationMessage } =
+          this.setNotifcationMessageForDevices(user.device_tokens, reminder);
         userExpoPushNotificationMessage.forEach((value, key) => {
           expoPushNotificationMessage.set(key, value);
         });
@@ -692,10 +691,8 @@ export class ReminderService {
     remindersToNotifyUsers: ReminderWithUser[],
   ) {
     try {
-      const {
-        expoPushNotificationMessage,
-        unSentReminderIds,
-      } = await this.setReminderMessagesToSendPush(remindersToNotifyUsers);
+      const { expoPushNotificationMessage, unSentReminderIds } =
+        await this.setReminderMessagesToSendPush(remindersToNotifyUsers);
       const invalidTokens = await this.sendReminderToPushNotification(
         expoPushNotificationMessage,
       );

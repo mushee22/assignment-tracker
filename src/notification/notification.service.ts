@@ -101,33 +101,27 @@ export class NotificationService {
     return result;
   }
 
-  async sendTestNotification(
-    userId: number,
-    title: string,
-    message: string,
-  ) {
+  async sendTestNotification(userId: number, title: string, message: string) {
     const tokens = await this.userProvider.getUserTokens(userId);
     if (tokens.length === 0) {
       throw new Error('No notification tokens found for the user');
     }
 
     const notificationData: NotificationData = {
-            title: `${title}`,
-            body: `${message}`,
-            type: NotificationType.OTHER,
+      title: `${title}`,
+      body: `${message}`,
+      type: NotificationType.OTHER,
     };
 
-     const expoPushNotificationMessageTo: Map<string, NotificationData> =
-        new Map();
+    const expoPushNotificationMessageTo: Map<string, NotificationData> =
+      new Map();
 
     for (const token of tokens) {
       expoPushNotificationMessageTo.set(token.token, notificationData);
-    }    
+    }
 
     await this.expoService.sendPushNotification(expoPushNotificationMessageTo);
 
     return 'Test notification sent';
-
   }
-
 }
