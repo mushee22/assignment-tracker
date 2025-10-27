@@ -16,7 +16,7 @@ import { AttachmentService } from 'src/common/attachment.service';
 import { ExpoService } from 'src/common/expo.service';
 import { FirebaseService } from 'src/common/firebase.service';
 import { UserProvider } from 'src/common/user.provider';
-import { deviceTokenTypes, PriorityIndex } from 'src/constant';
+import { PriorityIndex } from 'src/constant';
 import {
   generateFindOrderByQuery,
   generateFindWhereQuery,
@@ -640,21 +640,10 @@ export class AssignmentService {
         id: assignment.id,
       };
       const tokens = await this.userProvider.getUserTokens(owner.id);
-      const firabasePushNotificationMessage: Map<string, NotificationData> =
-        new Map();
       const expoPushNotificationMessageTo: Map<string, NotificationData> =
         new Map();
       for (const token of tokens) {
-        if (token.device_type === deviceTokenTypes.android) {
-          firabasePushNotificationMessage.set(token.token, message);
-        } else if (token.device_type === deviceTokenTypes.ios) {
-          expoPushNotificationMessageTo.set(token.token, message);
-        }
-      }
-      if (firabasePushNotificationMessage.size > 0) {
-        await this.fcmService.sendPushNotification(
-          firabasePushNotificationMessage,
-        );
+        expoPushNotificationMessageTo.set(token.token, message);
       }
       if (expoPushNotificationMessageTo.size > 0) {
         await this.expoService.sendPushNotification(

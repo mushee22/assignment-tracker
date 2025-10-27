@@ -13,7 +13,6 @@ import { AssignmentProvider } from 'src/common/assignment.provider';
 import { ExpoService } from 'src/common/expo.service';
 import { FirebaseService } from 'src/common/firebase.service';
 import { UserProvider } from 'src/common/user.provider';
-import { deviceTokenTypes } from 'src/constant';
 import { deadlineMinus } from 'src/lib/helper';
 import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -568,8 +567,6 @@ export class ReminderService {
     devices: DeviceToken[],
     reminder: ReminderWithUser,
   ) {
-    const firabasePushNotificationMessage: Map<string, NotificationData> =
-      new Map();
     const expoPushNotificationMessage: Map<string, NotificationData> =
       new Map();
     for (const deviceToken of devices) {
@@ -580,27 +577,18 @@ export class ReminderService {
         type: reminder.notification_type,
         reference_id: reminder.reference_id ?? undefined,
       };
-      if (deviceToken.device_type === deviceTokenTypes.android) {
-        firabasePushNotificationMessage.set(deviceToken.token, message);
-      }
-      if (deviceToken.device_type === deviceTokenTypes.ios) {
-        expoPushNotificationMessage.set(deviceToken.token, message);
-      }
+      expoPushNotificationMessage.set(deviceToken.token, message);
     }
     return {
-      firabasePushNotificationMessage,
       expoPushNotificationMessage,
     };
   }
 
   private async setReminderMessagesToSendPush(reminders: ReminderWithUser[]) {
-    const firabasePushNotificationMessage: Map<string, NotificationData> =
-      new Map();
     const expoPushNotificationMessage: Map<string, NotificationData> =
       new Map();
     if (reminders.length === 0) {
       return {
-        firabasePushNotificationMessage,
         expoPushNotificationMessage,
         unSentReminderIds: [],
       };
@@ -662,12 +650,8 @@ export class ReminderService {
 
       if (user.device_tokens.length) {
         const {
-          firabasePushNotificationMessage: userFirabasePushNotificationMessage,
           expoPushNotificationMessage: userExpoPushNotificationMessage,
         } = this.setNotifcationMessageForDevices(user.device_tokens, reminder);
-        userFirabasePushNotificationMessage.forEach((value, key) => {
-          firabasePushNotificationMessage.set(key, value);
-        });
         userExpoPushNotificationMessage.forEach((value, key) => {
           expoPushNotificationMessage.set(key, value);
         });
@@ -677,32 +661,22 @@ export class ReminderService {
       await this.updateUnsentReminderHistory(unSentReminders);
     }
     return {
-      firabasePushNotificationMessage,
       expoPushNotificationMessage,
       unSentReminderIds: Array.from(unSentReminders.keys()),
     };
   }
 
   private async sendReminderToPushNotification(
-    iosNotficationData: Map<string, NotificationData>,
-    androidNotficationData: Map<string, NotificationData>,
+    notificationData: Map<string, NotificationData>,
   ) {
-    if (!iosNotficationData || iosNotficationData.size === 0) {
+    if (!notificationData || notificationData.size === 0) {
       return [];
     }
     try {
       const invalidTokens: string[] = [];
-      if (androidNotficationData.size > 0) {
-        const invalidAndoidTokens = await this.fcmService.sendPushNotification(
-          androidNotficationData,
-        );
-        if (invalidAndoidTokens) {
-          invalidTokens.push(...invalidAndoidTokens);
-        }
-      }
-      if (iosNotficationData.size > 0) {
+      if (notificationData.size > 0) {
         const { inValidTokens: invalidIosTokens } =
-          await this.expoService.sendPushNotification(iosNotficationData);
+          await this.expoService.sendPushNotification(notificationData);
         if (invalidIosTokens) {
           invalidTokens.push(...invalidIosTokens);
         }
@@ -719,18 +693,15 @@ export class ReminderService {
   ) {
     try {
       const {
-        firabasePushNotificationMessage,
         expoPushNotificationMessage,
         unSentReminderIds,
       } = await this.setReminderMessagesToSendPush(remindersToNotifyUsers);
       const invalidTokens = await this.sendReminderToPushNotification(
         expoPushNotificationMessage,
-        firabasePushNotificationMessage,
       );
       const reminderIdsSendAsPush: number[] = remindersToNotifyUsers.map(
         (reminder) => reminder.id,
       );
-      // await this.markRemindersAsSent(reminderIdsMarkAsCompleted);
       if (invalidTokens.length) {
         await this.userProvider.invalidateTokens(invalidTokens);
       }

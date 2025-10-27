@@ -1,16 +1,15 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { SocialLoginType, User } from '@prisma/client';
-import { UsersService } from 'src/users/users.service';
-import { SignupDto } from './dto/signup.dto';
-import { Role } from '@prisma/client';
-import { MailService } from 'src/mail/mail.service';
-import { TokenService } from 'src/token/token.service';
-import { LoginDto } from './dto/login.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { comparePasswords, hashPassword } from 'src/lib/security';
+import { Role, SocialLoginType, User } from '@prisma/client';
 import { SocialLoginService } from 'src/common/social-login.service';
+import { comparePasswords, hashPassword } from 'src/lib/security';
+import { MailService } from 'src/mail/mail.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { TokenService } from 'src/token/token.service';
+import { UsersService } from 'src/users/users.service';
+import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SignupDto } from './dto/signup.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -137,6 +136,7 @@ export class AuthService {
       const otpId = await this.sendOtp(user.id, email, user.name, otp);
       const token = this.tokenService.createToken({
         userId: user.id,
+        email: user.email,
         otpId: otpId,
       });
       return token;
@@ -243,10 +243,16 @@ export class AuthService {
       });
       return newToken;
     } catch (_error) {
+       if (_error instanceof HttpException) {
+        throw _error;
+      }
+      console.log(_error);
+
       throw new HttpException(
-        'Failed to send OTP',
+        'Failed to resend OTP',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+
     }
   }
 

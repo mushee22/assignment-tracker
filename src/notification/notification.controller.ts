@@ -1,10 +1,26 @@
 import { Body, Controller, Delete, Get, Post } from '@nestjs/common';
-import { NotificationService } from './notification.service';
+import { Public } from 'src/lib/is-public';
 import { AuthUser } from 'src/users/auth-user.decorator';
+import { NotificationService } from './notification.service';
 
 @Controller('notification')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
+
+  @Public()
+  @Post('/test')
+  async sendTestNotification(
+    @Body('title') title: string,
+    @Body('user_id') userId: number,
+    @Body('message') message: string,
+  ) {
+    await this.notificationService.sendTestNotification(
+      userId,
+      title,
+      message,
+    );
+    return ['Test notification sent successfully'];
+  }
 
   @Get('/')
   async getNotifications(@AuthUser('id') userId: number) {
