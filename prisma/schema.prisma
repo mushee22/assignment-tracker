@@ -378,7 +378,7 @@ model DeviceToken {
   id Int @id @default(autoincrement())
   token String @unique
   device_type String
-  device_id String? @unique
+  device_id String?
   device_model String?
 
   is_active Boolean @default(true)

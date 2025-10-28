@@ -96,6 +96,7 @@ export class UsersService {
           userId,
           isExist.id,
           data.status,
+          isExist.is_default,
         );
         return updatedSchedule;
       }
@@ -289,6 +290,10 @@ export class UsersService {
 
       return true;
     } catch (_error) {
+      console.log(_error);
+      if (_error instanceof HttpException) {
+        throw _error;
+      }
       throw new HttpException(
         'Failed to save device token',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -428,6 +433,7 @@ export class UsersService {
     userId: number,
     scheduleId: number,
     isEnabled: boolean,
+    isDefault?: boolean,
   ) {
     await this.prisma.schedule.update({
       where: {
@@ -436,6 +442,7 @@ export class UsersService {
       },
       data: {
         is_enabled: isEnabled,
+        is_default: isDefault ?? false,
       },
     });
   }
