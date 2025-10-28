@@ -30,6 +30,7 @@ export class UserProvider {
       },
       include: {
         profile: true,
+        schedules: true,
       },
     });
 
