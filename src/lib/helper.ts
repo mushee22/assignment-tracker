@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { AssignmentStatus } from 'generated/prisma';
+import { AssignmentStatus } from '@prisma/client';
 import { AssigneFindQuery } from 'src/assignment/dto/assignment.dto';
 
 export function deadlineMinus(due_date: Date, schedule: string) {
