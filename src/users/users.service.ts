@@ -92,25 +92,19 @@ export class UsersService {
       );
 
       if (isExist) {
-        const updatedSchedule = await this.prisma.schedule.update({
-          where: {
-            id: isExist.id,
-          },
-          data: {
-            is_enabled: data.status,
-          },
-        });
+        const updatedSchedule = await this.updateSchedule(
+          userId,
+          isExist.id,
+          data.status,
+        );
         return updatedSchedule;
       }
 
-      const createdSchedule = await this.prisma.schedule.create({
-        data: {
-          user_id: userId,
-          schedule: data.schedule,
-          is_enabled: data.status,
-          is_default: false,
-        },
-      });
+      const createdSchedule = await this.createCustomeSchedule(
+        userId,
+        data.schedule,
+        data.status,
+      );
 
       await this.reminderService.reValidateUserAssignmentReminders(userId);
       return createdSchedule;
@@ -413,6 +407,37 @@ export class UsersService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  private async createCustomeSchedule(
+    userId: number,
+    schedule: string,
+    isEnabled: boolean,
+  ) {
+    await this.prisma.schedule.create({
+      data: {
+        user_id: userId,
+        schedule,
+        is_enabled: isEnabled,
+        is_default: false,
+      },
+    });
+  }
+
+  private async updateSchedule(
+    userId: number,
+    scheduleId: number,
+    isEnabled: boolean,
+  ) {
+    await this.prisma.schedule.update({
+      where: {
+        user_id: userId,
+        id: scheduleId,
+      },
+      data: {
+        is_enabled: isEnabled,
+      },
+    });
   }
 
   private async setDefaultReiminderSchedule(userId: number) {
