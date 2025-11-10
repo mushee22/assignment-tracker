@@ -13,7 +13,7 @@ export class MailService {
         template: './otp',
         context: {
           name,
-          OTP,
+          otp: OTP,
           year: new Date().getFullYear(),
         },
       });
