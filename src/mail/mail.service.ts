@@ -18,6 +18,7 @@ export class MailService {
         },
       });
     } catch (_error) {
+      console.log(_error);
       throw new HttpException(
         'Failed to send email',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -39,6 +40,7 @@ export class MailService {
         },
       });
     } catch (_error) {
+      console.log(_error);
       throw new HttpException(
         'Failed to send email',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -67,6 +69,7 @@ export class MailService {
         },
       });
     } catch (_error) {
+      console.log(_error);
       throw new HttpException(
         'Failed to send email',
         HttpStatus.INTERNAL_SERVER_ERROR,
