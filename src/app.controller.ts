@@ -4,17 +4,23 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  ParseFilePipeBuilder,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './lib/is-public';
 import { MailService } from './mail/mail.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AwsS3Service } from './aws-s3/aws-s3.service';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly mailService: MailService,
+    private readonly awsS3Service: AwsS3Service,
   ) {}
 
   @Get()
@@ -43,6 +49,32 @@ export class AppController {
       console.log(_error);
       throw new HttpException(
         'Failed to send email',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Public()
+  @Post('tes/image-upload')
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadImage(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addMaxSizeValidator({ maxSize: 1024 * 1024 * 5 }) // 5MB
+        .addFileTypeValidator({ fileType: /(jpg|jpeg|png)$/ })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    image: Express.Multer.File,
+  ) {
+    try {
+      const result = await this.awsS3Service.uploadFiles([image], 'test');
+      return [result, 'image uploaded successfully'];
+    } catch (_error) {
+      console.log(_error);
+      throw new HttpException(
+        'Failed to upload image',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
