@@ -47,24 +47,29 @@ export class AwsS3Service {
     files: Express.Multer.File[],
     folderName: string,
   ) {
-    const presignedUrls: UploadResult[] = [];
-    for (const file of files) {
-      const filname = await this.putObjectToS3(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        folderName,
-      );
-      presignedUrls.push({
-        file_name: file.originalname,
-        file_type: file.mimetype,
-        file_size: file.size,
-        storage_type: StorageType.S3_BUCKET,
-        storage_path: folderName,
-        storage_key: filname,
-      });
+    try {
+      const presignedUrls: UploadResult[] = [];
+      for (const file of files) {
+        const filname = await this.putObjectToS3(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+          folderName,
+        );
+        presignedUrls.push({
+          file_name: file.originalname,
+          file_type: file.mimetype,
+          file_size: file.size,
+          storage_type: StorageType.S3_BUCKET,
+          storage_path: folderName,
+          storage_key: filname,
+        });
+      }
+      return presignedUrls;
+    } catch (error) {
+      console.log(error);
+      throw new Error('Failed to upload files to S3');
     }
-    return presignedUrls;
   }
 
   private async putObjectToS3(
@@ -98,9 +103,14 @@ export class AwsS3Service {
   }
 
   async uploadFiles(files: Express.Multer.File[], folderName: string) {
-    let saveFileUrl: UploadResult[] = [];
-    saveFileUrl = await this.upLoadFilesToS3(files, folderName);
-    return saveFileUrl;
+    try {
+      let saveFileUrl: UploadResult[] = [];
+      saveFileUrl = await this.upLoadFilesToS3(files, folderName);
+      return saveFileUrl;
+    } catch (error) {
+      console.log(error);
+      throw new Error('Failed to upload files to S3');
+    }
   }
 
   deleteFile(key: string[]) {
