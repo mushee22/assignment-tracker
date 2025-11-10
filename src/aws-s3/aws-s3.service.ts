@@ -21,8 +21,8 @@ export class AwsS3Service {
 
   private initS3() {
     this.s3 = new AWS.S3({
-      accessKeyId: this.storageOptions.s3_access_key_id,
-      secretAccessKey: this.storageOptions.s3_secret_access_key,
+      // accessKeyId: this.storageOptions.s3_access_key_id,
+      // secretAccessKey: this.storageOptions.s3_secret_access_key,
       region: this.storageOptions.s3_region,
     });
   }

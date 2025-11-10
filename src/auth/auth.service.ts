@@ -353,7 +353,7 @@ export class AuthService {
     name: string,
     otp: number,
   ) {
-    // await this.mailService.sendOTPMail(email, name, otp);
+    await this.mailService.sendOTPMail(email, name, otp);
     return await this.saveOTP(userId, otp);
   }
 

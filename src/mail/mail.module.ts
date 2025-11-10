@@ -10,7 +10,7 @@ import { join } from 'path';
     MailerModule.forRoot({
       transport: transport,
       defaults: {
-        from: `"No Reply" <${process.env.MAILER_USER}>`,
+        from: `"No Reply" <${process.env.MAIL_FROM}>`,
       },
       template: {
         dir: join(__dirname, 'templates'),
