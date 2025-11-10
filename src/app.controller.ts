@@ -55,7 +55,7 @@ export class AppController {
   }
 
   @Public()
-  @Post('tes/image-upload')
+  @Post('test/image-upload')
   @UseInterceptors(FileInterceptor('image'))
   async uploadImage(
     @UploadedFile(
