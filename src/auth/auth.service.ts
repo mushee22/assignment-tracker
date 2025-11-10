@@ -115,6 +115,7 @@ export class AuthService {
       });
       return token;
     } catch (_error) {
+      console.log(_error);
       if (createdUser) {
         await this.usersService.deleteUserById(createdUser.id);
       }
