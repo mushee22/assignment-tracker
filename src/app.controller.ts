@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpException,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './lib/is-public';
 import { MailService } from './mail/mail.service';
@@ -24,12 +31,20 @@ export class AppController {
   @Public()
   @Post('/test-mail')
   async testMail(@Body() body: { to: string; name: string; message: string }) {
-    const result = await this.mailService.sendReminder(
-      body.to,
-      body.name,
-      body.message,
-      'Test',
-    );
-    return [result, 'mail sent successfully'];
+    try {
+      const result = await this.mailService.sendReminder(
+        body.to,
+        body.name,
+        body.message,
+        'Test',
+      );
+      return [result, 'mail sent successfully'];
+    } catch (_error) {
+      console.log(_error);
+      throw new HttpException(
+        'Failed to send email',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
