@@ -117,6 +117,7 @@ export class AttachmentService {
         attachment.storage_path = presignedUrl ?? '';
       }
     }
+    return attachements;
   }
 
   private async saveUploadedFilesInDb(
