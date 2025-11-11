@@ -35,13 +35,14 @@ export class AwsS3Service {
   private async generatePresignedUrl(
     data: Partial<S3.PutObjectRequest>,
     expires: number = 60 * 5,
+    method: 'putObject' | 'getObject' = 'putObject',
   ) {
     const params = {
       Expires: expires, //
       ...data,
       Bucket: this.storageOptions.s3_bucket_name,
     };
-    return await this.s3.getSignedUrlPromise('putObject', params);
+    return await this.s3.getSignedUrlPromise(method, params);
   }
 
   private async upLoadFilesToS3(
@@ -126,6 +127,7 @@ export class AwsS3Service {
         ContentType: contentType,
       },
       600 * 10,
+      'getObject',
     );
     return presignedUrl;
   }
