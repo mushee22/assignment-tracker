@@ -72,34 +72,39 @@ export class AppController {
     image: Express.Multer.File,
   ) {
     try {
-      const s3Clinet = new AWS.S3({
+      const s3Client = new AWS.S3({
         region: 'us-east-1',
       });
 
       const filename = `uploads/test/${Date.now()}-${image.originalname}`;
 
-      const presignedUrl = await s3Clinet.getSignedUrlPromise('putObject', {
+      const presignedUrl = await s3Client.getSignedUrlPromise('putObject', {
         Expires: 60 * 5,
         Key: filename,
         ContentType: image.mimetype,
         Bucket: process.env.S3_BUCKET_NAME,
       });
 
-      const response = await fetch(presignedUrl, {
+      const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
+        headers: {
+          'Content-Type': image.mimetype,
+        },
         body: image.buffer as BodyInit,
       });
 
-      if (!response.ok) {
-        console.log(response.statusText, response.status, response.ok);
-        const errorMessage = (await response.json()) as { message: string };
-        throw new Error(`Failed to upload file to S3: 
-          ${JSON.stringify(errorMessage)}`);
+      if (!uploadResponse.ok) {
+        const errorXML = await uploadResponse.text();
+        console.log('S3 Upload Failed:', errorXML);
+        throw new Error('S3 Upload Failed');
       }
 
-      return [null, 'image uploaded successfully'];
-    } catch (_error) {
-      console.log(_error);
+      return {
+        message: 'Image uploaded successfully',
+        fileUrl: `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${filename}`,
+      };
+    } catch (error) {
+      console.log(error);
       throw new HttpException(
         'Failed to upload image',
         HttpStatus.INTERNAL_SERVER_ERROR,
