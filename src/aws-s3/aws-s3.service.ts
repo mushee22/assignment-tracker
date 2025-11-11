@@ -120,11 +120,10 @@ export class AwsS3Service {
     }
   }
 
-  async getSignedUrl(key: string, contentType: string) {
+  async getSignedUrl(key: string) {
     const presignedUrl = await this.generatePresignedUrl(
       {
         Key: key,
-        ContentType: contentType,
       },
       600 * 10,
       'getObject',

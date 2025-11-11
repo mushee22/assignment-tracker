@@ -112,7 +112,6 @@ export class AttachmentService {
       if (attachment.storage_key) {
         const presignedUrl = await this.awsS3Service.getSignedUrl(
           attachment.storage_key,
-          attachment.file_type,
         );
         attachment.storage_path = presignedUrl ?? '';
       }

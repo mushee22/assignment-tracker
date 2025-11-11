@@ -35,10 +35,7 @@ export class AppController {
     @Query('file_type') fileType: string,
   ) {
     try {
-      const presignedUrl = await this.awsS3Service.getSignedUrl(
-        fileName,
-        fileType,
-      );
+      const presignedUrl = await this.awsS3Service.getSignedUrl(fileName);
       return presignedUrl;
     } catch (error) {
       console.log(error);
