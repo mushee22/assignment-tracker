@@ -72,36 +72,10 @@ export class AppController {
     image: Express.Multer.File,
   ) {
     try {
-      const s3Client = new AWS.S3({
-        region: 'us-east-1',
-      });
-
-      const filename = `uploads/test/${Date.now()}-${image.originalname}`;
-
-      const presignedUrl = await s3Client.getSignedUrlPromise('putObject', {
-        Expires: 60 * 5,
-        Key: filename,
-        ContentType: image.mimetype,
-        Bucket: process.env.S3_BUCKET_NAME,
-      });
-
-      const uploadResponse = await fetch(presignedUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': image.mimetype,
-        },
-        body: image.buffer as BodyInit,
-      });
-
-      if (!uploadResponse.ok) {
-        const errorXML = await uploadResponse.text();
-        console.log('S3 Upload Failed:', errorXML);
-        throw new Error('S3 Upload Failed');
-      }
-
+      const filename = await this.awsS3Service.uploadFiles([image], 'test');
       return {
         message: 'Image uploaded successfully',
-        fileUrl: `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${filename}`,
+        fileUrl: filename,
       };
     } catch (error) {
       console.log(error);

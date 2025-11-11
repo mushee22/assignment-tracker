@@ -21,8 +21,6 @@ export class AwsS3Service {
 
   private initS3() {
     this.s3 = new AWS.S3({
-      // accessKeyId: this.storageOptions.s3_access_key_id,
-      // secretAccessKey: this.storageOptions.s3_secret_access_key,
       region: this.storageOptions.s3_region,
     });
   }
@@ -86,11 +84,16 @@ export class AwsS3Service {
     const response = await fetch(presignedUrl, {
       method: 'PUT',
       body: file as BodyInit,
+      headers: {
+        'Content-Type': fileType,
+      },
     });
-    if (response.ok) {
-      return filname;
+    if (!response.ok) {
+      const errorXML = await response.text();
+      console.log('S3 Upload Failed:', errorXML);
+      throw new Error('S3 Upload Failed');
     }
-    throw new Error('Failed to upload file to S3');
+    return filname;
   }
 
   private removeObjectFromS3(key: string[]) {
