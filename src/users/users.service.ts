@@ -57,6 +57,19 @@ export class UsersService {
       by: ['status'],
       _count: true,
     });
+
+    if (user && user.profile?.profile_picture) {
+      const presignedUrl =
+        await this.attachmentService.getAttachmentByReferanceId(
+          user.id,
+          Prisma.ModelName.User,
+        );
+
+      if (presignedUrl.length > 0) {
+        user.profile.profile_picture = presignedUrl[0].storage_path;
+      }
+    }
+
     return {
       user,
       statistics: userAssignments,
