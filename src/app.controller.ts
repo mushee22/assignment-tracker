@@ -92,7 +92,8 @@ export class AppController {
 
       if (!response.ok) {
         console.log(response.statusText, response.status, response.ok);
-        throw new Error('Failed to upload file to S3');
+        const errorMessage = await response.text();
+        throw new Error(`Failed to upload file to S3: ${errorMessage}`);
       }
 
       return [null, 'image uploaded successfully'];
