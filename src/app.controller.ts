@@ -58,7 +58,7 @@ export class AppController {
   }
 
   @Public()
-  @Post('test/image-upload')
+  @Post('/test/image-upload')
   @UseInterceptors(FileInterceptor('image'))
   async uploadImage(
     @UploadedFile(
@@ -73,10 +73,10 @@ export class AppController {
   ) {
     try {
       const s3Clinet = new AWS.S3({
-        region: process.env.S3_REGION,
+        region: 'us-east-1',
       });
 
-      const filename = `${process.env.S3_DEFAULT_FOLDER}/test/${Date.now()}-${image.originalname}`;
+      const filename = `uploads/test/${Date.now()}-${image.originalname}`;
 
       const presignedUrl = await s3Clinet.getSignedUrlPromise('putObject', {
         Expires: 60 * 5,
