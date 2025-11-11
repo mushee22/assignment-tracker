@@ -32,9 +32,12 @@ export class AwsS3Service {
     return `${defaultFolder}/${folderName}/${Date.now()}-${fileName}`;
   }
 
-  private async generatePresignedUrl(data: Partial<S3.PutObjectRequest>) {
+  private async generatePresignedUrl(
+    data: Partial<S3.PutObjectRequest>,
+    expires: number = 60 * 5,
+  ) {
     const params = {
-      Expires: 60 * 5,
+      Expires: expires, //
       ...data,
       Bucket: this.storageOptions.s3_bucket_name,
     };
@@ -114,6 +117,17 @@ export class AwsS3Service {
       console.log(error);
       throw new Error('Failed to upload files to S3');
     }
+  }
+
+  async getSignedUrl(key: string, contentType: string) {
+    const presignedUrl = await this.generatePresignedUrl(
+      {
+        Key: key,
+        ContentType: contentType,
+      },
+      600 * 10,
+    );
+    return presignedUrl;
   }
 
   deleteFile(key: string[]) {

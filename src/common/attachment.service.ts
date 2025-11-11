@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Attachment } from '@prisma/client';
 import { AwsS3Service } from 'src/aws-s3/aws-s3.service';
 import { UploadResult } from 'src/aws-s3/interface/upload-interface';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -93,12 +94,29 @@ export class AttachmentService {
     referanceId: number,
     referanceModel: string,
   ) {
-    return await this.prismaService.attachment.findMany({
+    const attachemnt = await this.prismaService.attachment.findMany({
       where: {
         reference_id: referanceId,
         reference_model: referanceModel,
       },
     });
+
+    const attachmentWithPresignedUrl =
+      await this.getAttachmentWithPresignedUrl(attachemnt);
+
+    return attachmentWithPresignedUrl;
+  }
+
+  private async getAttachmentWithPresignedUrl(attachements: Attachment[]) {
+    for (const attachment of attachements) {
+      if (attachment.storage_key) {
+        const presignedUrl = await this.awsS3Service.getSignedUrl(
+          attachment.storage_key,
+          attachment.file_type,
+        );
+        attachment.storage_path = presignedUrl ?? '';
+      }
+    }
   }
 
   private async saveUploadedFilesInDb(

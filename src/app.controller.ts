@@ -6,6 +6,7 @@ import {
   HttpStatus,
   ParseFilePipeBuilder,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -14,9 +15,6 @@ import { Public } from './lib/is-public';
 import { MailService } from './mail/mail.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AwsS3Service } from './aws-s3/aws-s3.service';
-
-import AWS from 'aws-sdk';
-import type { S3 } from 'aws-sdk';
 
 @Controller()
 export class AppController {
@@ -29,6 +27,26 @@ export class AppController {
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @Get('/generate-s3-signed-url')
+  async getSignedUrl(
+    @Query('file_name') fileName: string,
+    @Query('file_type') fileType: string,
+  ) {
+    try {
+      const presignedUrl = await this.awsS3Service.getSignedUrl(
+        fileName,
+        fileType,
+      );
+      return presignedUrl;
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        'Failed to get signed url',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Public()
