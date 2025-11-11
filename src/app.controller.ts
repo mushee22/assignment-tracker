@@ -15,6 +15,9 @@ import { MailService } from './mail/mail.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AwsS3Service } from './aws-s3/aws-s3.service';
 
+import AWS from 'aws-sdk';
+import type { S3 } from 'aws-sdk';
+
 @Controller()
 export class AppController {
   constructor(
@@ -69,8 +72,30 @@ export class AppController {
     image: Express.Multer.File,
   ) {
     try {
-      const result = await this.awsS3Service.uploadFiles([image], 'test');
-      return [result, 'image uploaded successfully'];
+      const s3Clinet = new AWS.S3({
+        region: process.env.S3_REGION,
+      });
+
+      const filename = `${process.env.S3_DEFAULT_FOLDER}/test/${Date.now()}-${image.originalname}`;
+
+      const presignedUrl = await s3Clinet.getSignedUrlPromise('putObject', {
+        Expires: 60 * 5,
+        Key: filename,
+        ContentType: image.mimetype,
+        Bucket: process.env.S3_BUCKET_NAME,
+      });
+
+      const response = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: image.buffer as BodyInit,
+      });
+
+      if (!response.ok) {
+        console.log(response.statusText, response.status, response.ok);
+        throw new Error('Failed to upload file to S3');
+      }
+
+      return [null, 'image uploaded successfully'];
     } catch (_error) {
       console.log(_error);
       throw new HttpException(
