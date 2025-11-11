@@ -50,6 +50,60 @@ export class AppController {
   }
 
   @Public()
+  @Post('/check-app-version')
+  checkAppVersion(@Body() body: { app_version: string; platform: string }) {
+    try {
+      if (!body.app_version || !body.platform) {
+        throw new HttpException(
+          'App version and platform are required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        !body.platform ||
+        (body.platform !== 'ios' && body.platform !== 'android')
+      ) {
+        throw new HttpException(
+          'Platform is required and must be ios or android',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const iosSupportedAppVersions =
+        process.env.IOS_APP_VERSION?.split(',') || [];
+      const androidSupportedAppVersions =
+        process.env.ANDROID_APP_VERSION?.split(',') || [];
+
+      if (
+        body.platform === 'ios' &&
+        !iosSupportedAppVersions.includes(body.app_version)
+      ) {
+        throw new HttpException(
+          'App version is not supported',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (
+        body.platform === 'android' &&
+        !androidSupportedAppVersions.includes(body.app_version)
+      ) {
+        throw new HttpException(
+          'App version is not supported',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return [true, 'app version is supported'];
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        'Failed to check app version',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Public()
   @Get('/debug-sentry')
   getError() {
     throw new Error('My first Sentry error!');
