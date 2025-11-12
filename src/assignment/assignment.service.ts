@@ -689,7 +689,7 @@ export class AssignmentService {
         owner?.name ?? 'System',
         `You have been shared an assignment by ${owner?.name ?? 'System'}`,
         `Assignment Shared: ${assignment.title}`,
-        `${process.env.FRONTEND_URL}/assignments/${assignment.id}?access_token=${token}`,
+        `${process.env.FRONTEND_URL}/assignment-details?id=${assignment.id}&access_token=${token}`,
       );
     } catch (error) {
       console.log(error);
