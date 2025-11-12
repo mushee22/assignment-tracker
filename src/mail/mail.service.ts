@@ -76,4 +76,33 @@ export class MailService {
       );
     }
   }
+
+  async sendAssignemntShareMail(
+    to: string,
+    name: string,
+    message: string,
+    title: string,
+    link: string,
+  ) {
+    try {
+      await this.mailerService.sendMail({
+        to,
+        subject: 'Assignment Shared',
+        template: './assignment-share',
+        context: {
+          name,
+          message,
+          link,
+          title,
+          year: new Date().getFullYear(),
+        },
+      });
+    } catch (_error) {
+      console.log(_error);
+      throw new HttpException(
+        'Failed to send email',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

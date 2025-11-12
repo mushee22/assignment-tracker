@@ -1,4 +1,3 @@
-import { MailerService } from '@nestjs-modules/mailer';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
   Assignment,
@@ -14,7 +13,6 @@ import { AssignmentNoteProvider } from 'src/common/assignment-note.provider';
 import { AssignmentProvider } from 'src/common/assignment.provider';
 import { AttachmentService } from 'src/common/attachment.service';
 import { ExpoService } from 'src/common/expo.service';
-import { FirebaseService } from 'src/common/firebase.service';
 import { UserProvider } from 'src/common/user.provider';
 import { PriorityIndex } from 'src/constant';
 import {
@@ -32,6 +30,7 @@ import { ShareAssignmentDto } from './dto/share-assignment.dto';
 import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { SharedAssignmentQuery } from './interface';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AssignmentService {
@@ -40,9 +39,8 @@ export class AssignmentService {
     private readonly reminderService: ReminderService,
     private readonly userProvider: UserProvider,
     private readonly tokenService: TokenService,
-    private readonly fcmService: FirebaseService,
     private readonly expoService: ExpoService,
-    private readonly mailerService: MailerService,
+    private readonly mailerService: MailService,
     private readonly attachmentService: AttachmentService,
     private readonly assignmentProvider: AssignmentProvider,
     private readonly notificationService: NotificationService,
@@ -663,13 +661,16 @@ export class AssignmentService {
     token?: string,
   ) {
     try {
-      await this.mailerService.sendMail({
-        to: email,
-        subject: `Assignment Shared: ${assignment.title}`,
-        text: `You have been shared an assignment by ${owner?.name ?? 'System'}, ${process.env.FRONTEND_URL}/assignments/${assignment.id}?access_token=${token}`,
-      });
+      await this.mailerService.sendAssignemntShareMail(
+        email,
+        owner?.name ?? 'System',
+        `You have been shared an assignment by ${owner?.name ?? 'System'}`,
+        `Assignment Shared: ${assignment.title}`,
+        `${process.env.FRONTEND_URL}/assignments/${assignment.id}?access_token=${token}`,
+      );
     } catch (error) {
       console.log(error);
+      throw error;
     }
   }
 
