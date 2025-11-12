@@ -496,25 +496,42 @@ export class AssignmentService {
     assignmentId: number,
     shareAssignmentDto: ShareAssignmentDto,
   ) {
-    const assignment = await this.findOne(userId, assignmentId);
-    if (!assignment) {
-      throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
-    }
-    const owner = assignment.user;
-    const { email: sharedUsersEmail } = shareAssignmentDto;
-    for (const email of sharedUsersEmail) {
-      const user = await this.userProvider.findOneByEmail(email);
-      if (user) {
-        if (owner.id == user.id) {
-          continue;
-        }
+    try {
+      const assignment = await this.findOne(userId, assignmentId);
+      if (!assignment) {
+        throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+      }
+      const owner = assignment.user;
+      const { email: sharedUsersEmail } = shareAssignmentDto;
+
+      const user = await this.userProvider.findOneByEmail(sharedUsersEmail);
+
+      if (user && owner.id == user.id) {
+        throw new HttpException(
+          'You cannot share assignment with yourself',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (user && user.id) {
         await this.shareAssignmentToSystemUser(
           assignment as AssignmentWithUser,
           user,
         );
-        continue;
+        return 'Assignment shared with system user successfully';
       }
-      await this.shareAssignmentToGuestUsers(assignment, email);
+
+      await this.shareAssignmentToGuestUsers(assignment, sharedUsersEmail);
+      return 'Assignment shared with guest users successfully';
+    } catch (error) {
+      console.log(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Failed to share assignment',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -588,6 +605,7 @@ export class AssignmentService {
       );
     } catch (error) {
       console.log(error);
+      throw error;
     }
   }
 
@@ -598,32 +616,37 @@ export class AssignmentService {
     email: string,
     token?: string,
   ) {
-    if (isSystemUser) {
-      const message =
-        await this.sendPushNotificationToUserToNotifyTheAssignmentIsShared(
-          assignment,
-          owner,
-        );
-      await this.notificationService.saveNotificationsToDB([
-        {
-          user_id: owner.id,
-          title: message?.title ?? '',
-          message: message?.body,
-          reference_id: assignment.id,
-          reference_model: Prisma.ModelName.Assignment,
-          data: JSON.stringify({
-            id: assignment.id,
-            type: message?.type,
-          }),
-        },
-      ]);
+    try {
+      if (isSystemUser) {
+        const message =
+          await this.sendPushNotificationToUserToNotifyTheAssignmentIsShared(
+            assignment,
+            owner,
+          );
+        await this.notificationService.saveNotificationsToDB([
+          {
+            user_id: owner.id,
+            title: message?.title ?? '',
+            message: message?.body,
+            reference_id: assignment.id,
+            reference_model: Prisma.ModelName.Assignment,
+            data: JSON.stringify({
+              id: assignment.id,
+              type: message?.type,
+            }),
+          },
+        ]);
+      }
+      await this.sendMailNotificationToNotifyAssignmentShare(
+        assignment,
+        email,
+        owner,
+        token,
+      );
+    } catch (error) {
+      console.log(error);
+      throw error;
     }
-    await this.sendMailNotificationToNotifyAssignmentShare(
-      assignment,
-      email,
-      owner,
-      token,
-    );
   }
 
   private async sendPushNotificationToUserToNotifyTheAssignmentIsShared(
