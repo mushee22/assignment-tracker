@@ -3,10 +3,11 @@ import { AssignmentService } from './assignment.service';
 import { AssignmentController } from './assignment.controller';
 import { ReminderModule } from 'src/reminder/reminder.module';
 import { NotificationModule } from 'src/notification/notification.module';
+import { MailModule } from 'src/mail/mail.module';
 
 @Module({
   providers: [AssignmentService],
   controllers: [AssignmentController],
-  imports: [ReminderModule, NotificationModule],
+  imports: [ReminderModule, NotificationModule, MailModule],
 })
 export class AssignmentModule {}
