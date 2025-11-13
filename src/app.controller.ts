@@ -66,31 +66,42 @@ export class AppController {
         );
       }
 
-      const iosSupportedAppVersions =
-        process.env.IOS_APP_VERSION?.split(',') || [];
-      const androidSupportedAppVersions =
-        process.env.ANDROID_APP_VERSION?.split(',') || [];
+      const iosStableVersions = process.env.IOS_APP_VERSION;
+      const androidStableVersions = process.env.ANDROID_APP_VERSION;
+      const userCurrentVersion = body.app_version;
 
-      if (
-        body.platform === 'ios' &&
-        !iosSupportedAppVersions.includes(body.app_version)
-      ) {
-        throw new HttpException(
-          'App version is not supported',
-          HttpStatus.BAD_REQUEST,
+      if (body.platform === 'ios') {
+        const iosStableVersionInNumbers = Number(
+          iosStableVersions?.replace('.', ''),
         );
-      }
-      if (
-        body.platform === 'android' &&
-        !androidSupportedAppVersions.includes(body.app_version)
-      ) {
-        throw new HttpException(
-          'App version is not supported',
-          HttpStatus.BAD_REQUEST,
+        const iosInputVersionInNumbers = Number(
+          userCurrentVersion.replace('.', ''),
         );
-      }
 
-      return [true, 'app version is supported'];
+        if (iosInputVersionInNumbers < iosStableVersionInNumbers) {
+          throw new HttpException(
+            'App version is not supported',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return [true, 'app version is supported'];
+      }
+      if (body.platform === 'android') {
+        const androidStableVersionInNumbers = Number(
+          androidStableVersions?.replace('.', ''),
+        );
+        const androidInputVersionInNumbers = Number(
+          userCurrentVersion.replace('.', ''),
+        );
+        if (androidInputVersionInNumbers < androidStableVersionInNumbers) {
+          throw new HttpException(
+            'App version is not supported',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return [true, 'app version is supported'];
+      }
+      return [false, 'platform is not supported'];
     } catch (error) {
       console.log(error);
       throw new HttpException(
