@@ -213,7 +213,7 @@ export class AssignmentController {
   async deleteSharedAssignmentUsers(
     @Param('id') id: number,
     @AuthUser('id') authId: number,
-    @Body('email') email: string[],
+    @Body('email') email: string,
   ) {
     const deleteResult =
       await this.assignmentService.removeAccessToTheAssignment(

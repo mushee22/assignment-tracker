@@ -538,15 +538,13 @@ export class AssignmentService {
   async removeAccessToTheAssignment(
     userId: number,
     assignmentId: number,
-    emails: string[],
+    email: string,
   ) {
     const assignment = await this.findOne(userId, assignmentId);
     if (assignment) {
       await this.prismaService.assignmentMember.deleteMany({
         where: {
-          email: {
-            in: emails,
-          },
+          email: email,
           assignment_id: assignment.id,
         },
       });
