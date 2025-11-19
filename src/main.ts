@@ -12,7 +12,12 @@ async function bootstrap() {
     });
 
     app.use(helmet());
-    app.enableCors({});
+    app.enableCors({
+      origin: ['https://assignments.quickmindlabs.org'],
+      credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    });
 
     app.setGlobalPrefix('api/v1');
 
