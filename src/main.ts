@@ -16,6 +16,7 @@ async function bootstrap() {
       origin: process.env.ALLOWED_ORIGINS?.split(',') || [
         'http://localhost:3000',
         'http://localhost:8081',
+        'https://assignments.quickmindlabs.org/',
       ],
       credentials: true,
     });
