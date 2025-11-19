@@ -12,14 +12,7 @@ async function bootstrap() {
     });
 
     app.use(helmet());
-    app.enableCors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-        'http://localhost:3000',
-        'http://localhost:8081',
-        'https://assignments.quickmindlabs.org',
-      ],
-      credentials: true,
-    });
+    app.enableCors({});
 
     app.setGlobalPrefix('api/v1');
 
