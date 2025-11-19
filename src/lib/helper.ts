@@ -47,11 +47,13 @@ export const generateFindWhereQuery = (query: AssigneFindQuery) => {
       {
         title: {
           contains: query.q,
+          mode: 'insensitive',
         },
       },
       {
         description: {
           contains: query.q,
+          mode: 'insensitive',
         },
       },
       {
@@ -59,6 +61,7 @@ export const generateFindWhereQuery = (query: AssigneFindQuery) => {
           some: {
             content: {
               contains: query.q,
+              mode: 'insensitive',
             },
           },
         },
