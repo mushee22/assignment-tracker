@@ -239,9 +239,9 @@ export class AssignmentController {
   @Get('/:id/shared-assignment')
   @UseInterceptors(UserInterceptor)
   async getSharedAssignment(
-    @Param('id') id: number,
-    @Query('token') token: string,
     @Req() req: Request,
+    @Param('id') id: number,
+    @Query('token') token?: string,
   ) {
     const authId = req['user'] as User;
     const assignment = await this.assignmentService.findSharedAssignment(
