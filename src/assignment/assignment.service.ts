@@ -458,7 +458,10 @@ export class AssignmentService {
     }
 
     if (!data.token) {
-      throw new HttpException('Token is required', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'Token is required to see shared assignment',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const token = this.tokenService.verifyToken(data.token);
