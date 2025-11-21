@@ -432,7 +432,7 @@ export class AssignmentService {
     const sharedAssignment =
       await this.prismaService.assignmentMember.findFirst({
         where: {
-          id: id,
+          assignment_id: id,
         },
         include: {
           assignment: true,
