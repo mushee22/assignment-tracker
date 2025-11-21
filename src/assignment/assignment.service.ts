@@ -435,7 +435,11 @@ export class AssignmentService {
           assignment_id: id,
         },
         include: {
-          assignment: true,
+          assignment: {
+            include: {
+              subject: true,
+            },
+          },
         },
       });
 
