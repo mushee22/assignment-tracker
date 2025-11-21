@@ -12,7 +12,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { User } from '@prisma/client';
 import { UserInterceptor } from 'src/interceptor/user.interceptor';
 import { Public } from 'src/lib/is-public';
 import { AssignmentAttachmentPipe } from 'src/pipe/assignment-attachement.pipe';
@@ -23,6 +22,7 @@ import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { ShareAssignmentDto } from './dto/share-assignment.dto';
 import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
+import { PayloadDto } from 'src/token/dto/token.dto';
 
 @Controller('assignment')
 export class AssignmentController {
@@ -243,11 +243,11 @@ export class AssignmentController {
     @Param('id') id: number,
     @Query('token') token?: string,
   ) {
-    const authId = req['user'] as User;
+    const user = req['user'] as PayloadDto;
     const assignment = await this.assignmentService.findSharedAssignment(
       id,
       { token },
-      authId?.id,
+      user?.userId,
     );
     return [assignment, 'Shared Assignments fetched successfully'];
   }

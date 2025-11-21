@@ -1,9 +1,15 @@
-import { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { TokenService } from '../token/token.service';
 import { Request } from 'express';
 
+@Injectable()
 export class UserInterceptor implements NestInterceptor {
   constructor(private readonly tokenService: TokenService) {}
 
@@ -22,6 +28,7 @@ export class UserInterceptor implements NestInterceptor {
       }
       request['user'] = payload;
     } catch (_error) {
+      console.log(_error);
       return next.handle();
     }
 

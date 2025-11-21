@@ -447,6 +447,11 @@ export class AssignmentService {
       throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
     }
 
+    const attachments = await this.attachmentService.getAttachmentByReferanceId(
+      sharedAssignment.assignment_id,
+      Prisma.ModelName.Assignment,
+    );
+
     if (userId) {
       if (sharedAssignment.user_id !== userId) {
         throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
@@ -454,7 +459,11 @@ export class AssignmentService {
       if (!sharedAssignment.is_accepted) {
         await this.acceptSharedAssignment(id);
       }
-      return sharedAssignment.assignment;
+
+      return {
+        assignment: sharedAssignment.assignment,
+        attachments,
+      };
     }
 
     if (!data.token) {
@@ -484,7 +493,10 @@ export class AssignmentService {
       await this.acceptSharedAssignment(id);
     }
 
-    return sharedAssignment.assignment;
+    return {
+      assignment: sharedAssignment.assignment,
+      attachments,
+    };
   }
 
   private async acceptSharedAssignment(id: number) {
