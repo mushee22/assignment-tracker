@@ -12,6 +12,7 @@ async function bootstrap() {
     });
 
     app.use(helmet());
+
     app.enableCors({
       origin: ['https://assignments.quickmindlabs.org'],
       credentials: true,
