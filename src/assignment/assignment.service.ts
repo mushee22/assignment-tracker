@@ -701,12 +701,16 @@ export class AssignmentService {
     token?: string,
   ) {
     try {
+      const URL = token
+        ? `${process.env.FRONTEND_URL}/assignment-details?id=${assignment.id}&access_token=${token}&shared=true`
+        : `${process.env.FRONTEND_URL}/assignment-details?id=${assignment.id}&shared=true`;
+
       await this.mailerService.sendAssignemntShareMail(
         email,
-        owner?.name ?? 'System',
+        owner?.name ?? 'Unknown',
         `You have been shared an assignment by ${owner?.name ?? 'System'}`,
         `Assignment Shared: ${assignment.title}`,
-        `${process.env.FRONTEND_URL}/assignment-details?id=${assignment.id}&access_token=${token}&shared=true`,
+        `${URL}`,
       );
     } catch (error) {
       console.log(error);

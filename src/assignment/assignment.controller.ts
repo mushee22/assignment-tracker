@@ -38,7 +38,6 @@ export class AssignmentController {
   }
 
   @Get('shared-assignment/')
-  @UseInterceptors(UserInterceptor)
   async getSharedAssignments(@AuthUser('id') authId: number) {
     const assignment =
       await this.assignmentService.findUserSharedAssignments(authId);
@@ -46,7 +45,6 @@ export class AssignmentController {
   }
 
   @Get('statistics/')
-  @UseInterceptors(UserInterceptor)
   async getUserAssignmentStatistics(@AuthUser('id') authId: number) {
     const assignment =
       await this.assignmentService.getUserAssignmentStatistics(authId);
@@ -209,7 +207,6 @@ export class AssignmentController {
   }
 
   @Delete('/:id/share')
-  @UseInterceptors(UserInterceptor)
   async deleteSharedAssignmentUsers(
     @Param('id') id: number,
     @AuthUser('id') authId: number,
@@ -225,7 +222,6 @@ export class AssignmentController {
   }
 
   @Get('/:id/shared-assignment/users')
-  @UseInterceptors(UserInterceptor)
   async getSharedAssignmentUsers(
     @Param('id') id: number,
     @AuthUser('id') authId: number,
