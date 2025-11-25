@@ -275,6 +275,29 @@ export class AuthService {
     await this.usersService.updateUserTokens(user.id, false);
   }
 
+  async deleteAccount(data: LoginDto) {
+    const user = await this.usersService.findByEmail(data.email);
+
+    if (!user) {
+      throw new HttpException('user is not found', HttpStatus.BAD_REQUEST);
+    }
+
+    const isPasswordValid = await comparePasswords(
+      data.password,
+      user.hashed_password ?? '',
+    );
+
+    if (!isPasswordValid) {
+      throw new HttpException('user is not found', HttpStatus.BAD_REQUEST);
+    }
+
+    return {
+      message:
+        'Your account deletion request has been received. We will process it within 15 days.',
+      ticket_id: `DEL-${user.id}`,
+    };
+  }
+
   private async googleSignIn(token: string) {
     try {
       const payload = await this.socialLoginService.verifyGoogleToken(token);

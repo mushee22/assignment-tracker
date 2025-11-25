@@ -87,4 +87,11 @@ export class AuthController {
     await this.authService.logout(authId);
     return [true, 'User Logged Out Successfully'];
   }
+
+  @Public()
+  @Post('delete-account')
+  async deleteUserAccount(@Body() loginDto: LoginDto) {
+    const data = await this.authService.deleteAccount(loginDto);
+    return [data, 'Account deletion request accepted'];
+  }
 }
