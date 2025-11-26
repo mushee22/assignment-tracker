@@ -43,6 +43,5 @@ export class CreateAssignmentDto {
   notes?: string[];
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
-  is_reminder?: boolean = false;
+  is_reminder?: string = 'false';
 }

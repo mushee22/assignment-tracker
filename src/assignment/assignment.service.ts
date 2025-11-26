@@ -112,29 +112,46 @@ export class AssignmentService {
     attachments: Array<Express.Multer.File>,
   ) {
     try {
+      const { notes, due_date, subject_id, ...rest } = createAssignmentDto;
+
       const user = await this.userProvider.findOneById(userId);
+
+      const subject = await this.prismaService.subject.findFirst({
+        where: {
+          id: subject_id,
+          user_id: userId,
+        },
+      });
+
+      if (!subject) {
+        throw new HttpException('Subject not found', HttpStatus.NOT_FOUND);
+      }
+
       const notificationPreference = user.profile
         ?.notification_preference as Prisma.JsonObject;
-      const isPushNotification =
-        notificationPreference?.is_push_notification === 'true';
-      const isEmailNotification =
-        notificationPreference?.is_email_notification === 'true';
+      let isPushNotification =
+        notificationPreference?.push_notification === true;
+      let isEmailNotification =
+        notificationPreference?.email_notification === true;
 
-      const { notes, due_date, ...rest } = createAssignmentDto;
+      const isReminder =
+        createAssignmentDto.is_reminder?.trim() === 'true' ? true : false;
+
+      if (createAssignmentDto.is_reminder) {
+        isPushNotification = isReminder;
+        isEmailNotification = isReminder;
+      }
 
       const dueDateString = new Date(due_date).toISOString();
 
       const created = await this.assignmentProvider.create(userId, {
         ...rest,
+        subject_id: subject_id,
         due_date: dueDateString,
         priority_index: PriorityIndex[createAssignmentDto.priority as Priority],
-        is_push_notification: createAssignmentDto.is_reminder
-          ? true
-          : isPushNotification,
-        is_email_notification: createAssignmentDto.is_reminder
-          ? true
-          : isEmailNotification,
-        is_reminder: createAssignmentDto.is_reminder,
+        is_push_notification: isPushNotification,
+        is_email_notification: isEmailNotification,
+        is_reminder: isReminder ?? false,
       });
 
       if (attachments) {

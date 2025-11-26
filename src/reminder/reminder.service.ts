@@ -57,6 +57,7 @@ export class ReminderService {
         throw new HttpException('user not found', HttpStatus.NOT_FOUND);
       }
       const reminders: Prisma.ReminderCreateManyInput[] = [];
+
       reminders.push({
         reminder_at: reminderCreateDto.due_date,
         title: reminderCreateDto.title,
@@ -65,7 +66,7 @@ export class ReminderService {
         reference_model: reminderCreateDto.reference_model,
         status: ReminderStatus['PENDING'],
         user_id: user.id,
-        notification_type: NotificationType.OTHER,
+        notification_type: 'ASSIGNMENT',
         type: 'CUSTOM',
         //   sent_type: ReminderSentType.EMAIL,
       });
@@ -405,11 +406,6 @@ export class ReminderService {
             {
               reminder_at: {
                 lte: date,
-              },
-            },
-            {
-              reminder_at: {
-                gte: new Date(date.getTime() + 2 * 60 * 1000), // greater than 2 minutes
               },
             },
           ],
@@ -811,7 +807,7 @@ export class ReminderService {
       const data: Prisma.NotificationCreateManyInput[] =
         remindersToNotifyUsers.map((reminder) => ({
           user_id: reminder.user_id,
-          type: reminder.notification_type,
+          // type: reminder.notification_type,
           reference_id: reminder.reference_id ?? undefined,
           reference_model: Prisma.ModelName.Reminder,
           message: reminder.message,
