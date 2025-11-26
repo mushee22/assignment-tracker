@@ -33,7 +33,7 @@ export class ReminderController {
     return [remindersCout, 'Reminders sent successfully'];
   }
 
-  @Get('get-reminder-hitory')
+  @Get('get-reminder-history')
   async getReminderHistory() {
     const history = await this.reminderService.getReminderHistory();
     return [history, 'Reminders sent successfully'];
