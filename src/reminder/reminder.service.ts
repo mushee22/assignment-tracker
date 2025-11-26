@@ -1,4 +1,3 @@
-import { MailerService } from '@nestjs-modules/mailer';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
   AssignmentStatus,
@@ -23,12 +22,13 @@ import {
   ReminderWithUser,
 } from 'src/type';
 import { ReminderCreateDto } from './dto/reminder-create-dto';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class ReminderService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly mailerService: MailerService,
+    private readonly mailerService: MailService,
     private readonly userProvider: UserProvider,
     private readonly fcmService: FirebaseService,
     private readonly expoService: ExpoService,
@@ -561,7 +561,13 @@ export class ReminderService {
     try {
       const reminderIdsMarkAsCompleted: number[] = [];
       for (const reminder of reminders) {
-        await this.mailerService.sendMail(reminder.data);
+        await this.mailerService.sendAssignmentReminderMail(
+          reminder.email,
+          reminder.data.name,
+          reminder.data.body,
+          reminder.data.subject,
+          reminder.data.referance_id || 0,
+        );
         reminderIdsMarkAsCompleted.push(reminder.id);
       }
       return reminderIdsMarkAsCompleted;

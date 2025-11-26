@@ -63,7 +63,7 @@ export class MailService {
         context: {
           name,
           message,
-          assignmentId,
+          link: `${process.env.FRONTEND_URL}/assignment-details?id=${assignmentId}`,
           title,
           year: new Date().getFullYear(),
         },
