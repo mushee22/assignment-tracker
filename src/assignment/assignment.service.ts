@@ -435,8 +435,10 @@ export class AssignmentService {
           assignment: {
             include: {
               subject: true,
+              user: true,
             },
           },
+          user: true,
         },
       });
     const sharedAssignmentsList = sharedAssignments.map(
@@ -460,8 +462,10 @@ export class AssignmentService {
             include: {
               subject: true,
               notes: true,
+              user: true,
             },
           },
+          user: true,
         },
       });
 
