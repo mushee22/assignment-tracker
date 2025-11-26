@@ -118,6 +118,15 @@ export class ReminderService {
     }
   }
 
+  async getReminderHistory() {
+    try {
+      const history = await this.prismaService.reminderSendHistory.findMany();
+      return history;
+    } catch (error) {
+      throw new HttpException('Something went wrong', HttpStatus.BAD_REQUEST);
+    }
+  }
+
   async updateReminderStatus(
     userId: number,
     reminderId: number,
