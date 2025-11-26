@@ -450,7 +450,7 @@ export class ReminderService {
       userId: user.id,
       id: reminder.id,
       data: {
-        subject: `Reminder for ${reminder.title}`,
+        subject: `Reminder Alert!, ${reminder.title}`,
         body: reminder.message!,
         name: user.name,
         type: reminder.notification_type,
