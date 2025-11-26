@@ -415,7 +415,11 @@ export class AssignmentService {
           user_id: userId,
         },
         include: {
-          assignment: true,
+          assignment: {
+            include: {
+              subject: true,
+            },
+          },
         },
       });
     const sharedAssignmentsList = sharedAssignments.map(
