@@ -10,6 +10,7 @@ export class TaskService {
   async sendPushReminderUsers() {
     try {
       const date = new Date();
+      console.log(`scheduler is running on ${date.toDateString()}`);
       await this.reminderService.sendRemindersToUsers(date);
     } catch (_error) {
       console.log(_error);

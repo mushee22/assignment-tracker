@@ -338,7 +338,7 @@ export class AssignmentService {
       if (error instanceof HttpException) {
         throw error;
       }
-      new HttpException(
+      throw new HttpException(
         'Failed to update new attachment',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -575,6 +575,24 @@ export class AssignmentService {
     user: User,
   ) {
     try {
+      const isAlreadyShared =
+        await this.prismaService.assignmentMember.findFirst({
+          where: {
+            assignment_id: assignment.id,
+            user_id: user.id,
+          },
+        });
+
+      if (isAlreadyShared) {
+        await this.notifyUserAssignmentShare(
+          assignment,
+          assignment.user,
+          true,
+          user.email,
+        );
+        return;
+      }
+
       await this.prismaService.assignmentMember.create({
         data: {
           assignment_id: assignment.id,
@@ -604,6 +622,25 @@ export class AssignmentService {
         { expiresIn: '2d' },
       );
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+      const isAlreadyShared =
+        await this.prismaService.assignmentMember.findFirst({
+          where: {
+            assignment_id: assignment.id,
+            email: email,
+          },
+        });
+
+      if (isAlreadyShared) {
+        await this.notifyUserAssignmentShare(
+          assignment,
+          assignment.user,
+          false,
+          email,
+          token,
+        );
+        return;
+      }
       await this.prismaService.assignmentMember.create({
         data: {
           assignment_id: assignment.id,

@@ -398,36 +398,41 @@ export class ReminderService {
   }
 
   private async getRemindersToNotifyUser(date: Date) {
-    return await this.prismaService.reminder.findMany({
-      where: {
-        AND: [
-          {
-            reminder_at: {
-              lte: date,
+    try {
+      return await this.prismaService.reminder.findMany({
+        where: {
+          AND: [
+            {
+              reminder_at: {
+                lte: date,
+              },
             },
-          },
-          {
-            reminder_at: {
-              gte: new Date(date.getTime() + 2 * 60 * 1000), // greater than 2 minutes
+            {
+              reminder_at: {
+                gte: new Date(date.getTime() + 2 * 60 * 1000), // greater than 2 minutes
+              },
             },
-          },
-        ],
-        status: ReminderStatus['PENDING'],
-        reference_model: Prisma.ModelName.Assignment,
-      },
-      include: {
-        user: {
-          include: {
-            profile: true,
-            device_tokens: {
-              where: {
-                is_active: true,
+          ],
+          status: ReminderStatus['PENDING'],
+          reference_model: Prisma.ModelName.Assignment,
+        },
+        include: {
+          user: {
+            include: {
+              profile: true,
+              device_tokens: {
+                where: {
+                  is_active: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to get reminders to notify user');
+    }
   }
 
   private setMessageData(
@@ -475,73 +480,78 @@ export class ReminderService {
   }
 
   private async setReminderMessagesToSendEmail(reminders: ReminderWithUser[]) {
-    const emailReminderMessages: EmailReminders[] = [];
-    if (reminders.length === 0) {
+    try {
+      const emailReminderMessages: EmailReminders[] = [];
+      if (reminders.length === 0) {
+        return {
+          emailReminderMessages,
+          unSendReminderIds: [],
+        };
+      }
+      const unSendReminders = new Map<number, ReminderUnsendHistoryData>();
+      for (const reminder of reminders) {
+        const user = reminder.user;
+        const profile = user.profile;
+        if (!profile) {
+          continue;
+        }
+        const notification_preference =
+          profile.notification_preference as Prisma.JsonObject;
+        const isEmailNotification =
+          notification_preference.email_notification as boolean;
+        const isAssignmentNotification =
+          notification_preference.assignment_notification as boolean;
+
+        let isCanSendEmail = true;
+        let reason = '';
+
+        if (!isEmailNotification) {
+          isCanSendEmail = false;
+          reason = 'Email notification is disabled';
+        }
+
+        if (
+          reminder.notification_type == NotificationType.ASSIGNMENT &&
+          !isAssignmentNotification
+        ) {
+          isCanSendEmail = false;
+          reason = 'Assignment notification is disabled';
+        }
+
+        if (reminder.notification_type == NotificationType.ASSIGNMENT) {
+          const assignment = await this.assignmentProvider.findOne(
+            reminder.user_id,
+            reminder.reference_id!,
+          );
+          if (!assignment || !assignment.is_email_notification) {
+            isCanSendEmail = false;
+            reason = 'Email notification is disabled for this assignment';
+          }
+        }
+
+        const message = this.setMessageData(reminder, ReminderSentType.EMAIL);
+
+        if (!isCanSendEmail) {
+          unSendReminders.set(reminder.id, {
+            reason,
+            sent_type: ReminderSentType.EMAIL,
+            data: JSON.stringify(message),
+          });
+          continue;
+        }
+        emailReminderMessages.push(message as EmailReminders);
+      }
+      if (unSendReminders.size > 0) {
+        await this.updateUnsentReminderHistory(unSendReminders);
+      }
       return {
         emailReminderMessages,
-        unSendReminderIds: [],
+        unSendReminderIds: Array.from(unSendReminders.keys()),
       };
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to set reminder messages to send email');
     }
-    const unSendReminders = new Map<number, ReminderUnsendHistoryData>();
-    for (const reminder of reminders) {
-      const user = reminder.user;
-      const profile = user.profile;
-      if (!profile) {
-        continue;
-      }
-      const notification_preference =
-        profile.notification_preference as Prisma.JsonObject;
-      const isEmailNotification =
-        notification_preference.email_notification as boolean;
-      const isAssignmentNotification =
-        notification_preference.assignment_notification as boolean;
-
-      let isCanSendEmail = true;
-      let reason = '';
-
-      if (!isEmailNotification) {
-        isCanSendEmail = false;
-        reason = 'Email notification is disabled';
-      }
-
-      if (
-        reminder.notification_type == NotificationType.ASSIGNMENT &&
-        !isAssignmentNotification
-      ) {
-        isCanSendEmail = false;
-        reason = 'Assignment notification is disabled';
-      }
-
-      if (reminder.notification_type == NotificationType.ASSIGNMENT) {
-        const assignment = await this.assignmentProvider.findOne(
-          reminder.user_id,
-          reminder.reference_id!,
-        );
-        if (!assignment || !assignment.is_email_notification) {
-          isCanSendEmail = false;
-          reason = 'Email notification is disabled for this assignment';
-        }
-      }
-
-      const message = this.setMessageData(reminder, ReminderSentType.EMAIL);
-
-      if (!isCanSendEmail) {
-        unSendReminders.set(reminder.id, {
-          reason,
-          sent_type: ReminderSentType.EMAIL,
-          data: JSON.stringify(message),
-        });
-        continue;
-      }
-      emailReminderMessages.push(message as EmailReminders);
-    }
-    if (unSendReminders.size > 0) {
-      await this.updateUnsentReminderHistory(unSendReminders);
-    }
-    return {
-      emailReminderMessages,
-      unSendReminderIds: Array.from(unSendReminders.keys()),
-    };
   }
 
   private async sendReminderToEmail(reminders?: EmailReminders[]) {
@@ -735,95 +745,120 @@ export class ReminderService {
     reminderIds: number[],
     sentType: ReminderSentType,
   ) {
-    await this.prismaService.reminderSendHistory.createMany({
-      data: reminderIds.map((id) => ({
-        reminder_id: id,
-        sent_type: sentType,
-      })),
-    });
+    try {
+      await this.prismaService.reminderSendHistory.createMany({
+        data: reminderIds.map((id) => ({
+          reminder_id: id,
+          sent_type: sentType,
+        })),
+      });
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to update reminder sent history');
+    }
   }
 
   private async updateReminderSentStatus(
     reminderidsSentAsEmail: number[],
     reminderIdsSendAsPush: number[],
   ) {
-    const reminderidsMarkAsSent = new Set([
-      ...reminderidsSentAsEmail,
-      ...reminderIdsSendAsPush,
-    ]);
-    await this.markRemindersAsSent(Array.from(reminderidsMarkAsSent));
-    await this.updateReminderSentHistory(
-      reminderIdsSendAsPush,
-      ReminderSentType.PUSH,
-    );
-    await this.updateReminderSentHistory(
-      reminderidsSentAsEmail,
-      ReminderSentType.EMAIL,
-    );
+    try {
+      const reminderidsMarkAsSent = new Set([
+        ...reminderidsSentAsEmail,
+        ...reminderIdsSendAsPush,
+      ]);
+      await this.markRemindersAsSent(Array.from(reminderidsMarkAsSent));
+      await this.updateReminderSentHistory(
+        reminderIdsSendAsPush,
+        ReminderSentType.PUSH,
+      );
+      await this.updateReminderSentHistory(
+        reminderidsSentAsEmail,
+        ReminderSentType.EMAIL,
+      );
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to update reminder sent status');
+    }
   }
 
   private async updateUnsentStatus(
     reminderidsUnSendAsEmail: number[],
     reminderIdsUnSendAsPush: number[],
   ) {
-    const unSentReminderIds = new Set([
-      ...reminderidsUnSendAsEmail,
-      ...reminderIdsUnSendAsPush,
-    ]);
-    await this.markReminderAsDisabled(Array.from(unSentReminderIds));
+    try {
+      const unSentReminderIds = new Set([
+        ...reminderidsUnSendAsEmail,
+        ...reminderIdsUnSendAsPush,
+      ]);
+      await this.markReminderAsDisabled(Array.from(unSentReminderIds));
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to update unsent status');
+    }
   }
 
   private async saveReminderNotificationToDb(
     remindersToNotifyUsers: ReminderWithUser[],
   ) {
-    const data: Prisma.NotificationCreateManyInput[] =
-      remindersToNotifyUsers.map((reminder) => ({
-        user_id: reminder.user_id,
-        type: reminder.notification_type,
-        reference_id: reminder.reference_id ?? undefined,
-        reference_model: Prisma.ModelName.Reminder,
-        message: reminder.message,
-        title: reminder.title,
-        data: JSON.stringify({
-          id: reminder.id,
+    try {
+      const data: Prisma.NotificationCreateManyInput[] =
+        remindersToNotifyUsers.map((reminder) => ({
+          user_id: reminder.user_id,
           type: reminder.notification_type,
           reference_id: reminder.reference_id ?? undefined,
-        }),
-      }));
-    await this.notificationService.saveNotificationsToDB(data);
+          reference_model: Prisma.ModelName.Reminder,
+          message: reminder.message,
+          title: reminder.title,
+          data: JSON.stringify({
+            id: reminder.id,
+            type: reminder.notification_type,
+            reference_id: reminder.reference_id ?? undefined,
+          }),
+        }));
+      await this.notificationService.saveNotificationsToDB(data);
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to save reminder notification to db');
+    }
   }
 
   async sendRemindersToUsers(date: Date) {
     // get reminders to notify users
-    const remindersToNotifyUsers = (await this.getRemindersToNotifyUser(
-      date,
-    )) as ReminderWithUser[];
+    try {
+      const remindersToNotifyUsers = (await this.getRemindersToNotifyUser(
+        date,
+      )) as ReminderWithUser[];
 
-    // // send push reminders to users
-    // const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
-    //   await this.sendPushRemindersToUers(remindersToNotifyUsers);
+      // // send push reminders to users
+      // const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
+      //   await this.sendPushRemindersToUers(remindersToNotifyUsers);
 
-    // send email reminders to users
-    const {
-      reminderIdsSendToMail = [],
-      unSendReminderIds: unSendEmailReminderIds = [],
-    } = await this.sendEmialRemindersToUers(remindersToNotifyUsers);
+      // send email reminders to users
+      const {
+        reminderIdsSendToMail = [],
+        unSendReminderIds: unSendEmailReminderIds = [],
+      } = await this.sendEmialRemindersToUers(remindersToNotifyUsers);
 
-    // save notification to db
-    await this.saveReminderNotificationToDb(remindersToNotifyUsers);
+      // save notification to db
+      await this.saveReminderNotificationToDb(remindersToNotifyUsers);
 
-    // update sent status
-    await this.updateReminderSentStatus(
-      reminderIdsSendToMail,
-      [],
-      // reminderIdsSendAsPush,
-    );
+      // update sent status
+      await this.updateReminderSentStatus(
+        reminderIdsSendToMail,
+        [],
+        // reminderIdsSendAsPush,
+      );
 
-    // update unsent status
-    await this.updateUnsentStatus(
-      unSendEmailReminderIds,
-      [],
-      // unSentPushReminderIds,
-    );
+      // update unsent status
+      await this.updateUnsentStatus(
+        unSendEmailReminderIds,
+        [],
+        // unSentPushReminderIds,
+      );
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to send reminders to users');
+    }
   }
 }

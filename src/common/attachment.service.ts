@@ -28,7 +28,8 @@ export class AttachmentService {
       );
       return savedFiles;
     } catch (error) {
-      console.log(error);
+      // console.log(error, 'failed');
+      throw new Error('Failed to upload files');
     }
   }
 

@@ -26,10 +26,12 @@ export class AwsS3Service {
   }
 
   private generateUniqueFileName(fileName: string, folderName: string) {
+    const now = new Date().getTime();
+    const attachmentName = `assignment-tracker-attachment-${now}`;
     const defaultFolder = this.storageOptions.s3_default_folder
       ? `/${this.storageOptions.s3_default_folder}`
       : '';
-    return `${defaultFolder}/${folderName}/${Date.now()}-${fileName}`;
+    return `${defaultFolder}/${folderName}/${attachmentName}`;
   }
 
   private async generatePresignedUrl(
@@ -85,19 +87,23 @@ export class AwsS3Service {
       Key: filname,
       ContentType: fileType,
     });
-    const response = await fetch(presignedUrl, {
-      method: 'PUT',
-      body: file as BodyInit,
-      headers: {
-        'Content-Type': fileType,
-      },
-    });
-    if (!response.ok) {
-      const errorXML = await response.text();
-      console.log('S3 Upload Failed:', errorXML);
+    try {
+      const response = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: file as BodyInit,
+        headers: {
+          'Content-Type': fileType,
+        },
+      });
+      if (!response.ok) {
+        const errorXML = await response.text();
+        console.log('S3 Upload Failed:', errorXML);
+        throw new Error('S3 Upload Failed');
+      }
+      return filname;
+    } catch (error) {
       throw new Error('S3 Upload Failed');
     }
-    return filname;
   }
 
   private removeObjectFromS3(key: string[]) {
