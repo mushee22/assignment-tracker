@@ -1,63 +1,111 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background: #f3f4f6;
+            font-family: Arial, sans-serif;
             color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
         }
+
+        .email-wrapper {
+            max-width: 620px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        /* HEADER */
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 30px;
+            padding: 35px 20px;
             text-align: center;
-            border-radius: 10px 10px 0 0;
         }
         .header h1 {
-            color: white;
             margin: 0;
-            font-size: 24px;
-        }
-        .content {
-            background: #f9f9f9;
-            padding: 30px;
-            border-radius: 0 0 10px 10px;
-        }
-        .otp-code {
-            background: #667eea;
-            color: white;
-            padding: 15px 30px;
-            font-size: 32px;
+            font-size: 26px;
+            color: #fff;
             font-weight: bold;
-            text-align: center;
-            border-radius: 5px;
-            letter-spacing: 5px;
-            margin: 20px 0;
         }
+
+        /* CONTENT */
+        .content {
+            padding: 30px;
+            background: #ffffff;
+            color: #333;
+        }
+        .content h2 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .content p {
+            font-size: 15px;
+            margin: 12px 0;
+            line-height: 1.6;
+        }
+
+        /* CTA BUTTON */
+        .cta-button {
+            display: inline-block;
+            background: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            padding: 14px 22px;
+            border-radius: 6px;
+            font-size: 16px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .cta-button:hover {
+            opacity: 0.95;
+        }
+
+        /* FOOTER */
         .footer {
             text-align: center;
-            margin-top: 30px;
             font-size: 12px;
-            color: #666;
+            color: #777;
+            padding: 20px 20px 30px;
+            background: #f9f9f9;
         }
     </style>
 </head>
+
 <body>
-    <div class="header">
-        <h1>{{title}}</h1>
-    </div>
-    <div class="content">
-        <h2>Hi, {{name}},</h2>
-        <p>{{message}}</p>
-        <a href="{{link}}"  target="_blank">View Assignment</a>
-        <p>Best regards,<br>Assignment Tracker Team</p>
-    </div>
-    <div class="footer">
-        <p>&copy; {{year}} Assignment Tracker. All rights reserved.</p>
+    <div class="email-wrapper">
+
+        <div class="header">
+            <h1>Reminder Alert!</h1>
+        </div>
+
+        <div class="content">
+           <h3>Hi {{name}},</h3>
+        
+           <h2>{{title}}</h2>
+
+            <p>{{message}}</p>
+
+            <a href="{{link}}" target="_blank" class="cta-button">View Assignment</a>
+
+            <p>Best regards,<br/>Assignment Tracker Team</p>
+        </div>
+
+        <div class="footer">
+            <p>&copy; {{year}} Assignment Tracker. All rights reserved.</p>
+        </div>
     </div>
 </body>
 </html>
