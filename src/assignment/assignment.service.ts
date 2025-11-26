@@ -442,6 +442,7 @@ export class AssignmentService {
           assignment: {
             include: {
               subject: true,
+              notes: true,
             },
           },
         },
