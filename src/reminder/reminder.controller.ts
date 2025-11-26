@@ -27,7 +27,7 @@ export class ReminderController {
   }
 
   @Get('test-reminder-email')
-  async testRemonderEmail() {
+  async testReminderEmail() {
     const now = new Date();
     const remindersCout = await this.reminderService.sendRemindersToUsers(now);
     return [remindersCout, 'Reminders sent successfully'];
