@@ -862,6 +862,10 @@ export class ReminderService {
         [],
         // unSentPushReminderIds,
       );
+
+      return {
+        remiders: remindersToNotifyUsers?.length ?? 0,
+      };
     } catch (error) {
       console.log(error, 'error');
       throw new Error('Failed to send reminders to users');

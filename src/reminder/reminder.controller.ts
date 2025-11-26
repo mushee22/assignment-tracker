@@ -26,6 +26,13 @@ export class ReminderController {
     return [reminders, 'Reminders fetched successfully'];
   }
 
+  @Get('test-reminder-email')
+  async testRemonderEmail() {
+    const now = new Date();
+    const remindersCout = await this.reminderService.sendRemindersToUsers(now);
+    return [remindersCout, 'Reminders sent successfully'];
+  }
+
   @Get('/:id')
   async getReminder(@AuthUser('id') userId: number, @Param('id') id: number) {
     const reminder = await this.reminderService.findeReminderById(userId, id);
