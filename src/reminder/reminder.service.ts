@@ -515,19 +515,25 @@ export class ReminderService {
           reason = 'Email notification is disabled';
         }
 
-        if (
-          reminder.notification_type == NotificationType.ASSIGNMENT &&
-          !isAssignmentNotification
-        ) {
-          isCanSendEmail = false;
-          reason = 'Assignment notification is disabled';
-        }
+        // if (
+        //   reminder.notification_type == NotificationType.ASSIGNMENT &&
+        //   !isAssignmentNotification
+        // ) {
+        //   isCanSendEmail = false;
+        //   reason = 'Assignment notification is disabled';
+        // }
 
         if (reminder.notification_type == NotificationType.ASSIGNMENT) {
           const assignment = await this.assignmentProvider.findOne(
             reminder.user_id,
             reminder.reference_id!,
           );
+
+          if (!assignment || !assignment.is_reminder) {
+            isCanSendEmail = false;
+            reason = 'Remoinder is disabled for this assignment';
+          }
+
           if (!assignment || !assignment.is_email_notification) {
             isCanSendEmail = false;
             reason = 'Email notification is disabled for this assignment';
