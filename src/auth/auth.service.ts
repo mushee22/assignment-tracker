@@ -273,9 +273,23 @@ export class AuthService {
   }
 
   async deleteAccount(data: LoginDto) {
-    const user = await this.usersService.findByEmail(data.email);
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: {
+          mode: 'insensitive',
+          equals: data.email,
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        hashed_password: true,
+        is_verified: true,
+        is_active: true,
+      },
+    });
 
-    if (!user) {
+    if (!user || !user.is_verified || !user.is_active) {
       throw new HttpException('user is not found', HttpStatus.BAD_REQUEST);
     }
 
