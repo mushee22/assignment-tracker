@@ -6,6 +6,7 @@ import {
   Priority,
   Prisma,
   ReminderType,
+  Schedule,
   User,
 } from '@prisma/client';
 import { UploadResult } from 'src/aws-s3/interface/upload-interface';
@@ -31,6 +32,11 @@ import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-n
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { SharedAssignmentQuery } from './interface';
 import { MailService } from 'src/mail/mail.service';
+import {
+  CreateAssignmentScheduleDto,
+  UpdateAssignmentScheduleDto,
+} from './dto/assignment-schecdule.dto';
+import { ScheduleService } from 'src/common/schedule.service';
 
 @Injectable()
 export class AssignmentService {
@@ -45,6 +51,7 @@ export class AssignmentService {
     private readonly assignmentProvider: AssignmentProvider,
     private readonly notificationService: NotificationService,
     private readonly assignmentNoteProvider: AssignmentNoteProvider,
+    private readonly scheduleService: ScheduleService,
   ) {}
 
   async findAll(userId: number, query: AssigneFindQuery) {
@@ -594,6 +601,126 @@ export class AssignmentService {
         },
       });
     }
+  }
+
+  async getAssignmentSchedules(
+    userId: number,
+    assignmentId: number,
+    isGlobal: boolean = false,
+  ) {
+    const schedules: Schedule[] = [];
+
+    const assignmentSchedules = await this.scheduleService.getSchedules(
+      userId,
+      false,
+      assignmentId,
+      false,
+    );
+
+    schedules.push(...assignmentSchedules);
+
+    if (isGlobal) {
+      const globalSchedules = await this.scheduleService.getSchedules(
+        userId,
+        true,
+        undefined,
+        true,
+      );
+      schedules.push(...globalSchedules);
+    }
+    return schedules;
+  }
+
+  async addNewAssignmentSchedule(
+    userId: number,
+    assignmentId: number,
+    createAssignmentScheduleDto: CreateAssignmentScheduleDto,
+  ) {
+    const assignment = await this.findOne(userId, assignmentId);
+    if (!assignment) {
+      throw new HttpException('Assignment not found', HttpStatus.NOT_FOUND);
+    }
+
+    const isExist = await this.scheduleService.getScheduleBySchedule(
+      userId,
+      createAssignmentScheduleDto.schedule,
+      assignment.id,
+      createAssignmentScheduleDto.type as 'BEFORE' | 'AFTER',
+    );
+
+    if (isExist && isExist.is_enabled) {
+      throw new HttpException(
+        'Schedule already exists',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (isExist && !isExist.is_enabled) {
+      await this.scheduleService.updateSchedule(isExist.id, {
+        is_enabled: true,
+      });
+      return isExist;
+    }
+
+    const created = await this.scheduleService.createSchedule({
+      assignment_id: assignment.id,
+      user_id: userId,
+      schedule: createAssignmentScheduleDto.schedule,
+      type: createAssignmentScheduleDto.type as 'BEFORE' | 'AFTER',
+      is_default: false,
+      is_enabled: true,
+      is_global: false,
+    });
+    return created;
+  }
+
+  async updateAssignmentSchedule(
+    userId: number,
+    scheduleId: number,
+    assignmentId: number,
+    updateAssignmentScheduleDto: UpdateAssignmentScheduleDto,
+  ) {
+    const isExist = await this.scheduleService.getScheduleById(scheduleId);
+
+    if (!isExist) {
+      throw new HttpException('Schedule not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (isExist.assignment_id != assignmentId || isExist.user_id != userId) {
+      throw new HttpException(
+        'You are not authorized to update this schedule',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    const updated = await this.scheduleService.updateSchedule(scheduleId, {
+      is_enabled: updateAssignmentScheduleDto.status,
+      type: updateAssignmentScheduleDto.type as 'BEFORE' | 'AFTER',
+      schedule: updateAssignmentScheduleDto.schedule,
+    });
+    return updated;
+  }
+
+  async removeAssignmentSchedule(
+    userId: number,
+    scheduleId: number,
+    assignmentId: number,
+  ) {
+    const isExist = await this.scheduleService.getScheduleById(scheduleId);
+
+    if (!isExist) {
+      throw new HttpException('Schedule not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (isExist.assignment_id != assignmentId || isExist.user_id != userId) {
+      throw new HttpException(
+        'You are not authorized to delete this schedule',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    await this.scheduleService.deleteSchedule(scheduleId);
+    return isExist;
   }
 
   private async shareAssignmentToSystemUser(

@@ -187,6 +187,7 @@ model Assignment {
   notification_settings NotificationSettings[]
   assignment_members AssignmentMember[]
   notes AssignmentNotes[]
+  schedules Schedule[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -270,7 +271,8 @@ model Notification {
 model Schedule {
   id Int @id @default(autoincrement())
   user_id Int
-  user User @relation(fields: [user_id], references: [id], onDelete:  Cascade)
+  assignment_id Int?
+  
 
   schedule String
   
@@ -284,6 +286,9 @@ model Schedule {
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete:  Cascade)
+  assignment Assignment? @relation(fields: [assignment_id], references: [id], onDelete: NoAction)
 
   @@index([user_id])
   @@map("schedules")

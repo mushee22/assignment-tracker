@@ -62,11 +62,24 @@ export class UserProvider {
     return tokens;
   }
 
-  async getUserSchedules(userId: number) {
+  async getUserSchedules(
+    userId: number,
+    isGlobal: boolean = true,
+    assignment_id?: number,
+  ) {
     const schedules = await this.prismaService.schedule.findMany({
       where: {
         user_id: userId,
+        OR: [
+          {
+            is_global: isGlobal,
+          },
+          {
+            assignment_id: assignment_id,
+          },
+        ],
       },
+      distinct: ['schedule'],
     });
     return schedules;
   }

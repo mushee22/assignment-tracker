@@ -2,21 +2,41 @@ import { Prisma } from '@prisma/client';
 import { AssignmentStatus } from '@prisma/client';
 import { AssigneFindQuery } from 'src/assignment/dto/assignment.dto';
 
-export function deadlineMinus(due_date: Date, schedule: string) {
+export function deadlineMinus(
+  due_date: Date,
+  schedule: string,
+  type: 'BEFORE' | 'AFTER' = 'BEFORE',
+) {
   const dueDate = new Date(due_date);
   const [time, unit] = schedule.split('_');
   switch (unit) {
     case 'MINUTES':
-      dueDate.setMinutes(dueDate.getMinutes() - Number(time));
+      if (type === 'BEFORE') {
+        dueDate.setMinutes(dueDate.getMinutes() - Number(time));
+      } else {
+        dueDate.setMinutes(dueDate.getMinutes() + Number(time));
+      }
       break;
     case 'HOURS':
-      dueDate.setHours(dueDate.getHours() - Number(time));
+      if (type === 'BEFORE') {
+        dueDate.setHours(dueDate.getHours() - Number(time));
+      } else {
+        dueDate.setHours(dueDate.getHours() + Number(time));
+      }
       break;
     case 'DAYS':
-      dueDate.setDate(dueDate.getDate() - Number(time));
+      if (type === 'BEFORE') {
+        dueDate.setDate(dueDate.getDate() - Number(time));
+      } else {
+        dueDate.setDate(dueDate.getDate() + Number(time));
+      }
       break;
     case 'WEEKS':
-      dueDate.setDate(dueDate.getDate() - Number(time) * 7);
+      if (type === 'BEFORE') {
+        dueDate.setDate(dueDate.getDate() - Number(time) * 7);
+      } else {
+        dueDate.setDate(dueDate.getDate() + Number(time) * 7);
+      }
       break;
     default:
       break;

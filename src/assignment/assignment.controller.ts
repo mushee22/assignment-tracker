@@ -23,6 +23,10 @@ import { ShareAssignmentDto } from './dto/share-assignment.dto';
 import { UpdateAssignmentNotificationStatusDto } from './dto/update-assignment-notification-status.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { PayloadDto } from 'src/token/dto/token.dto';
+import {
+  CreateAssignmentScheduleDto,
+  UpdateAssignmentScheduleDto,
+} from './dto/assignment-schecdule.dto';
 
 @Controller('assignment')
 export class AssignmentController {
@@ -122,6 +126,64 @@ export class AssignmentController {
       noteId,
     );
     return [true, 'Assignment notes deleted successfully'];
+  }
+
+  @Get('/:id/schedules')
+  async getSchedules(
+    @Param('id') id: number,
+    @AuthUser('id') authId: number,
+    @Query('isGlobal') isGlobal: boolean = false,
+  ) {
+    const schedules = await this.assignmentService.getAssignmentSchedules(
+      authId,
+      id,
+      isGlobal,
+    );
+    return [schedules, 'Assignment schedules fetched successfully'];
+  }
+
+  @Post('/:id/schedules')
+  async addSchedule(
+    @Param('id') id: number,
+    @AuthUser('id') authId: number,
+    @Body() createAssignmentScheduleDto: CreateAssignmentScheduleDto,
+  ) {
+    const assignment = await this.assignmentService.addNewAssignmentSchedule(
+      authId,
+      id,
+      createAssignmentScheduleDto,
+    );
+    return [assignment, 'Assignment schedule added successfully'];
+  }
+
+  @Put('/:id/schedules/:scheduleId')
+  async updateSchedule(
+    @Param('id') id: number,
+    @Param('scheduleId') scheduleId: number,
+    @AuthUser('id') authId: number,
+    @Body() updateAssignmentScheduleDto: UpdateAssignmentScheduleDto,
+  ) {
+    const assignment = await this.assignmentService.updateAssignmentSchedule(
+      authId,
+      scheduleId,
+      id,
+      updateAssignmentScheduleDto,
+    );
+    return [assignment, 'Assignment schedule updated successfully'];
+  }
+
+  @Delete('/:id/schedules/:scheduleId')
+  async deleteSchedule(
+    @Param('id') id: number,
+    @Param('scheduleId') scheduleId: number,
+    @AuthUser('id') authId: number,
+  ) {
+    const assignment = await this.assignmentService.removeAssignmentSchedule(
+      authId,
+      scheduleId,
+      id,
+    );
+    return [assignment, 'Assignment schedule deleted successfully'];
   }
 
   @Put('/:id/mark-as-completed')

@@ -16,6 +16,7 @@ import { deadlineMinus } from 'src/lib/helper';
 import { NotificationService } from 'src/notification/notification.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
+  AssignmentWithUser,
   EmailReminders,
   NotificationData,
   ReminderUnsendHistoryData,
@@ -35,20 +36,6 @@ export class ReminderService {
     private readonly assignmentProvider: AssignmentProvider,
     private readonly notificationService: NotificationService,
   ) {}
-
-  private async insertDataToReminder(data: Prisma.ReminderCreateManyInput[]) {
-    try {
-      const reminders = await this.prismaService.reminder.createMany({
-        data,
-      });
-      return reminders;
-    } catch (_error) {
-      throw new HttpException(
-        'somthing went wrong',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
 
   async createReminder(userId: number, reminderCreateDto: ReminderCreateDto) {
     try {
@@ -215,46 +202,6 @@ export class ReminderService {
     }
   }
 
-  private async markRemindersAsSent(reminderIds: number[]) {
-    try {
-      await this.prismaService.reminder.updateMany({
-        where: {
-          id: {
-            in: reminderIds,
-          },
-        },
-        data: {
-          status: ReminderStatus.SENT,
-        },
-      });
-    } catch (_error) {
-      throw new HttpException(
-        'somthing went wrong',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  private async markReminderAsDisabled(reminderIds: number[]) {
-    try {
-      await this.prismaService.reminder.updateMany({
-        where: {
-          id: {
-            in: reminderIds,
-          },
-        },
-        data: {
-          status: ReminderStatus.DISABLED,
-        },
-      });
-    } catch (_error) {
-      throw new HttpException(
-        'somthing went wrong',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
   async createAssignmentReminder(userId: number, assignmentId: number) {
     try {
       const assignment = await this.prismaService.assignment.findFirst({
@@ -298,11 +245,11 @@ export class ReminderService {
         return reminders;
       }
 
-      const schedules = await this.userProvider.getUserSchedules(userId);
-
-      if (!schedules) {
-        return reminders;
-      }
+      const schedules = await this.userProvider.getUserSchedules(
+        userId,
+        false,
+        assignmentId,
+      );
 
       for (const schedule of schedules) {
         if (!schedule.is_enabled) {
@@ -312,12 +259,18 @@ export class ReminderService {
         const reminderAt = deadlineMinus(
           assignment.due_date!,
           schedule.schedule,
+          schedule.type as 'BEFORE' | 'AFTER',
+        );
+
+        const { title, message } = this.createReminderTileAndMessage(
+          assignment,
+          schedule.type as 'BEFORE' | 'AFTER',
         );
 
         const reminder: Prisma.ReminderCreateManyInput = {
           reminder_at: reminderAt.toISOString(),
-          title: `Reminder for ${assignment.title}`,
-          message: `You have an assignment due on ${assignment?.due_date?.toDateString()}`,
+          title: title,
+          message: message,
           reference_id: assignment.id,
           reference_model: 'Assignment',
           status: ReminderStatus['PENDING'],
@@ -342,6 +295,49 @@ export class ReminderService {
         throw _error;
       }
       throw _error;
+    }
+  }
+
+  async sendRemindersToUsers(date: Date) {
+    // get reminders to notify users
+    try {
+      const remindersToNotifyUsers = (await this.getRemindersToNotifyUser(
+        date,
+      )) as ReminderWithUser[];
+
+      // // send push reminders to users
+      // const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
+      //   await this.sendPushRemindersToUers(remindersToNotifyUsers);
+
+      // send email reminders to users
+      const {
+        reminderIdsSendToMail = [],
+        unSendReminderIds: unSendEmailReminderIds = [],
+      } = await this.sendEmialRemindersToUers(remindersToNotifyUsers);
+
+      // save notification to db
+      await this.saveReminderNotificationToDb(remindersToNotifyUsers);
+
+      // update sent status
+      await this.updateReminderSentStatus(
+        reminderIdsSendToMail,
+        [],
+        // reminderIdsSendAsPush,
+      );
+
+      // update unsent status
+      await this.updateUnsentStatus(
+        unSendEmailReminderIds,
+        [],
+        // unSentPushReminderIds,
+      );
+
+      return {
+        remiders: remindersToNotifyUsers?.length ?? 0,
+      };
+    } catch (error) {
+      console.log(error, 'error');
+      throw new Error('Failed to send reminders to users');
     }
   }
 
@@ -399,6 +395,60 @@ export class ReminderService {
         },
       });
       return reminders;
+    } catch (_error) {
+      throw new HttpException(
+        'somthing went wrong',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async insertDataToReminder(data: Prisma.ReminderCreateManyInput[]) {
+    try {
+      const reminders = await this.prismaService.reminder.createMany({
+        data,
+      });
+      return reminders;
+    } catch (_error) {
+      throw new HttpException(
+        'somthing went wrong',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async markRemindersAsSent(reminderIds: number[]) {
+    try {
+      await this.prismaService.reminder.updateMany({
+        where: {
+          id: {
+            in: reminderIds,
+          },
+        },
+        data: {
+          status: ReminderStatus.SENT,
+        },
+      });
+    } catch (_error) {
+      throw new HttpException(
+        'somthing went wrong',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async markReminderAsDisabled(reminderIds: number[]) {
+    try {
+      await this.prismaService.reminder.updateMany({
+        where: {
+          id: {
+            in: reminderIds,
+          },
+        },
+        data: {
+          status: ReminderStatus.DISABLED,
+        },
+      });
     } catch (_error) {
       throw new HttpException(
         'somthing went wrong',
@@ -840,46 +890,22 @@ export class ReminderService {
     }
   }
 
-  async sendRemindersToUsers(date: Date) {
-    // get reminders to notify users
-    try {
-      const remindersToNotifyUsers = (await this.getRemindersToNotifyUser(
-        date,
-      )) as ReminderWithUser[];
+  private createReminderTileAndMessage(
+    assignment: AssignmentWithUser,
+    type: 'BEFORE' | 'AFTER',
+  ) {
+    const title =
+      type === 'BEFORE'
+        ? `Assignment ${assignment?.title} Due on ${assignment?.due_date?.toDateString()}`
+        : `Assignment ${assignment?.title} has been expired on ${assignment?.due_date?.toDateString()}`;
 
-      // // send push reminders to users
-      // const { reminderIdsSendAsPush, unSentReminderIds: unSentPushReminderIds } =
-      //   await this.sendPushRemindersToUers(remindersToNotifyUsers);
-
-      // send email reminders to users
-      const {
-        reminderIdsSendToMail = [],
-        unSendReminderIds: unSendEmailReminderIds = [],
-      } = await this.sendEmialRemindersToUers(remindersToNotifyUsers);
-
-      // save notification to db
-      await this.saveReminderNotificationToDb(remindersToNotifyUsers);
-
-      // update sent status
-      await this.updateReminderSentStatus(
-        reminderIdsSendToMail,
-        [],
-        // reminderIdsSendAsPush,
-      );
-
-      // update unsent status
-      await this.updateUnsentStatus(
-        unSendEmailReminderIds,
-        [],
-        // unSentPushReminderIds,
-      );
-
-      return {
-        remiders: remindersToNotifyUsers?.length ?? 0,
-      };
-    } catch (error) {
-      console.log(error, 'error');
-      throw new Error('Failed to send reminders to users');
-    }
+    const message =
+      type === 'BEFORE'
+        ? `You have an assignment due on ${assignment?.due_date?.toDateString()}. Please complete it before the due date.`
+        : `Your assignment due date has been expired on ${assignment?.due_date?.toDateString()}. Please complete it as soon as possible.`;
+    return {
+      title,
+      message,
+    };
   }
 }
