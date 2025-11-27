@@ -285,7 +285,7 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
-      throw new HttpException('user is not found', HttpStatus.BAD_REQUEST);
+      throw new HttpException('invalid credentials', HttpStatus.BAD_REQUEST);
     }
 
     return {
