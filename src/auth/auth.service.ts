@@ -119,10 +119,7 @@ export class AuthService {
       if (createdUser) {
         await this.usersService.deleteUserById(createdUser.id);
       }
-      throw new HttpException(
-        'Failed to sign up',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw _error;
     }
   }
 
@@ -229,10 +226,10 @@ export class AuthService {
   async resendOtp(token: string) {
     try {
       const payload = this.tokenService.verifyToken(token);
-      if (!payload.email) {
+      if (!payload.userId) {
         throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
       }
-      const user = await this.usersService.findByEmail(payload.email);
+      const user = await this.usersService.findOneById(payload.userId);
       if (!user) {
         throw new HttpException('User not found', HttpStatus.NOT_FOUND);
       }
@@ -413,6 +410,7 @@ export class AuthService {
       throw error;
     }
   }
+
   private async saveOTP(userId: number, otp: number) {
     try {
       const expiredAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
