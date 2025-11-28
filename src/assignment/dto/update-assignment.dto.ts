@@ -39,7 +39,7 @@ export class UpdateAssignmentDto {
 
   @IsOptional()
   @IsEnum(AssignmentStatus)
-  status?: AssignmentStatus = AssignmentStatus.PENDING;
+  status?: AssignmentStatus;
 
   @IsOptional()
   @IsDateString()
