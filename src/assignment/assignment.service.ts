@@ -199,15 +199,23 @@ export class AssignmentService {
       throw new HttpException('Assignment not found', HttpStatus.BAD_REQUEST);
     }
 
-    const priorityIndex = updateAssignmentDto.priority
-      ? PriorityIndex[updateAssignmentDto.priority]
+    const { priority, due_date, ...rest } = updateAssignmentDto;
+
+    const priorityIndex = priority
+      ? PriorityIndex[priority]
       : assignment.priority_index;
+
+    let dueDate = '';
+    if (due_date) {
+      dueDate = new Date(due_date).toISOString();
+    }
 
     const updated = await this.assignmentProvider.update(
       userId,
       assignment.id,
       {
-        ...updateAssignmentDto,
+        ...rest,
+        ...(dueDate ? { due_date: dueDate } : {}),
         priority_index: priorityIndex,
       },
     );
@@ -645,7 +653,7 @@ export class AssignmentService {
       userId,
       createAssignmentScheduleDto.schedule,
       assignment.id,
-      createAssignmentScheduleDto.type as 'BEFORE' | 'AFTER',
+      createAssignmentScheduleDto.type,
     );
 
     if (isExist && isExist.is_enabled) {
@@ -666,7 +674,7 @@ export class AssignmentService {
       assignment_id: assignment.id,
       user_id: userId,
       schedule: createAssignmentScheduleDto.schedule,
-      type: createAssignmentScheduleDto.type as 'BEFORE' | 'AFTER',
+      type: createAssignmentScheduleDto.type,
       is_default: false,
       is_enabled: true,
       is_global: false,
