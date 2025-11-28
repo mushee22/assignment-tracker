@@ -35,7 +35,7 @@ export class UpdateAssignmentDto {
 
   @IsEnum(Priority)
   @IsOptional()
-  priority?: Priority = Priority.LOW;
+  priority?: Priority;
 
   @IsOptional()
   @IsEnum(AssignmentStatus)

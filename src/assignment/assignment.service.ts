@@ -217,6 +217,7 @@ export class AssignmentService {
         ...rest,
         ...(dueDate ? { due_date: dueDate } : {}),
         priority_index: priorityIndex,
+        priority: priority ?? assignment.priority,
       },
     );
     await this.reminderService.updateAssignmentReminder(userId, updated.id);
